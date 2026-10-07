@@ -1,1 +1,2 @@
-// TODO: Add a calculator example after defining Vico syntax.
+set total = (2 + 3) * 4
+say "Total: " + total

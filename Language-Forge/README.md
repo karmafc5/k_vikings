@@ -1,9 +1,29 @@
 # Language Forge
 
-A small language implementation project. Source modules live in `src/`, example programs in `examples/`, and tests in `tests/`.
+Language Forge is a small interpreter for Vico. Its lexer, parser, bytecode compiler, and virtual machine are implemented in TypeScript.
+
+## Run
+
+Install dependencies and run an example:
+
+```sh
+npm install
+npm start -- examples/hello.vico
+npm start -- examples/name.vico
+```
+
+The name example prompts for input. Run the calculator with `npm start -- examples/calculator.vico`.
+
+## Syntax
+
+```vico
+ask name
+set greeting = "Hello, " + name
+say greeting
+```
+
+`ask` reads a line into a variable, `set` assigns an expression, and `say` prints an expression. Expressions support numbers, strings, variables, parentheses, unary minus, and `+`, `-`, `*`, `/`; `+` concatenates when either operand is a string. `//` starts a line comment.
 
 ## Development
 
-Install dependencies with `npm install`, then run `npm test`, `npm run typecheck`, or `npm run build`.
-
-The `.vico` examples and test cases are placeholders until the language syntax and runtime are implemented.
+Run `npm test`, `npm run typecheck`, and `npm run build` to test, check, and compile the project.

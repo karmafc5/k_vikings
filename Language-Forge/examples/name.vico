@@ -1,1 +1,2 @@
-// TODO: Add a name input/output example after defining Vico syntax.
+ask name
+say "My name is " + name
