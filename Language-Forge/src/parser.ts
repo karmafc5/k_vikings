@@ -1,4 +1,5 @@
 import { Token, TokenType } from "./token";
+
 import {
   Program,
   Statement,
@@ -6,10 +7,8 @@ import {
   SayStatement,
   AskStatement,
   IfStatement,
+  WhileStatement,
   Expression,
-  LiteralExpression,
-  VariableExpression,
-  BinaryExpression,
 } from "./ast";
 
 export class Parser {
@@ -51,9 +50,13 @@ export class Parser {
       return this.ifStatement();
     }
 
+    if (this.match(TokenType.WHILE)) {
+      return this.whileStatement();
+    }
+
     throw this.error(
       this.peek(),
-      `Expected 'set', 'say', 'ask', or 'if'.`
+      `Expected 'set', 'say', 'ask', 'if', or 'while'.`
     );
   }
 
@@ -120,19 +123,79 @@ export class Parser {
     );
 
     while (this.match(TokenType.NEWLINE)) {
-      // Skip empty lines after the if condition.
+      // Skip empty lines.
     }
 
     const thenBranch: Statement[] = [];
 
-    if (!this.isAtEnd()) {
+    while (
+      !this.isAtEnd() &&
+      !this.check(TokenType.ELSE)
+    ) {
       thenBranch.push(this.statement());
+
+      while (this.match(TokenType.NEWLINE)) {
+        // Skip empty lines.
+      }
+    }
+
+    let elseBranch: Statement[] | undefined;
+
+    if (this.match(TokenType.ELSE)) {
+      this.consume(
+        TokenType.NEWLINE,
+        "Expected new line after else."
+      );
+
+      while (this.match(TokenType.NEWLINE)) {
+        // Skip empty lines.
+      }
+
+      elseBranch = [];
+
+      while (!this.isAtEnd()) {
+        elseBranch.push(this.statement());
+
+        while (this.match(TokenType.NEWLINE)) {
+          // Skip empty lines.
+        }
+      }
     }
 
     return {
       type: "IfStatement",
       condition,
       thenBranch,
+      elseBranch,
+    };
+  }
+
+  private whileStatement(): WhileStatement {
+    const condition = this.expression();
+
+    this.consume(
+      TokenType.NEWLINE,
+      "Expected new line after while condition."
+    );
+
+    while (this.match(TokenType.NEWLINE)) {
+      // Skip empty lines.
+    }
+
+    const body: Statement[] = [];
+
+    while (!this.isAtEnd()) {
+      body.push(this.statement());
+
+      while (this.match(TokenType.NEWLINE)) {
+        // Skip empty lines.
+      }
+    }
+
+    return {
+      type: "WhileStatement",
+      condition,
+      body,
     };
   }
 
@@ -144,7 +207,10 @@ export class Parser {
     let expression = this.comparison();
 
     while (
-      this.match(TokenType.EQUAL_EQUAL, TokenType.NOT_EQUAL)
+      this.match(
+        TokenType.EQUAL_EQUAL,
+        TokenType.NOT_EQUAL
+      )
     ) {
       const operator = this.previous();
       const right = this.comparison();
@@ -189,7 +255,10 @@ export class Parser {
     let expression = this.factor();
 
     while (
-      this.match(TokenType.PLUS, TokenType.MINUS)
+      this.match(
+        TokenType.PLUS,
+        TokenType.MINUS
+      )
     ) {
       const operator = this.previous();
       const right = this.factor();
@@ -209,7 +278,10 @@ export class Parser {
     let expression = this.primary();
 
     while (
-      this.match(TokenType.STAR, TokenType.SLASH)
+      this.match(
+        TokenType.STAR,
+        TokenType.SLASH
+      )
     ) {
       const operator = this.previous();
       const right = this.primary();
@@ -272,7 +344,10 @@ export class Parser {
       return this.advance();
     }
 
-    throw this.error(this.peek(), message);
+    throw this.error(
+      this.peek(),
+      message
+    );
   }
 
   private check(type: TokenType): boolean {
@@ -303,7 +378,10 @@ export class Parser {
     return this.tokens[this.current - 1];
   }
 
-  private error(token: Token, message: string): Error {
+  private error(
+    token: Token,
+    message: string
+  ): Error {
     return new Error(
       `[line ${token.line}] Error: ${message}`
     );

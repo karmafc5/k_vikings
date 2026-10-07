@@ -2,10 +2,11 @@ import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { Interpreter } from "./interpreter";
 
-const source = `set age = 15
+const source = `set count = 1
 
-if age >= 18
-    say "Adult"
+while count <= 5
+    say count
+    set count = count + 1
 `;
 
 try {

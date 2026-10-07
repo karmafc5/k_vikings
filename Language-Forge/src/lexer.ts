@@ -47,7 +47,10 @@ export class Lexer {
 
       case "/":
         if (this.peek() === "/") {
-          while (this.peek() !== "\n" && !this.isAtEnd()) {
+          while (
+            this.peek() !== "\n" &&
+            !this.isAtEnd()
+          ) {
             this.advance();
           }
         } else {
@@ -56,12 +59,12 @@ export class Lexer {
         break;
 
       case "=":
-  this.addToken(
-    this.match("=")
-      ? TokenType.EQUAL_EQUAL
-      : TokenType.EQUAL
-  );
-  break;
+        this.addToken(
+          this.match("=")
+            ? TokenType.EQUAL_EQUAL
+            : TokenType.EQUAL
+        );
+        break;
 
       case "(":
         this.addToken(TokenType.LEFT_PAREN);
@@ -81,29 +84,29 @@ export class Lexer {
         this.line++;
         break;
 
-        case "!":
-  this.addToken(
-    this.match("=")
-      ? TokenType.NOT_EQUAL
-      : TokenType.NOT_EQUAL
-  );
-  break;
+      case "!":
+        this.addToken(
+          this.match("=")
+            ? TokenType.NOT_EQUAL
+            : TokenType.NOT_EQUAL
+        );
+        break;
 
-case "<":
-  this.addToken(
-    this.match("=")
-      ? TokenType.LESS_EQUAL
-      : TokenType.LESS
-  );
-  break;
+      case "<":
+        this.addToken(
+          this.match("=")
+            ? TokenType.LESS_EQUAL
+            : TokenType.LESS
+        );
+        break;
 
-case ">":
-  this.addToken(
-    this.match("=")
-      ? TokenType.GREATER_EQUAL
-      : TokenType.GREATER
-  );
-  break;
+      case ">":
+        this.addToken(
+          this.match("=")
+            ? TokenType.GREATER_EQUAL
+            : TokenType.GREATER
+        );
+        break;
 
       case '"':
         this.string();
@@ -127,7 +130,10 @@ case ">":
       this.advance();
     }
 
-    const text = this.source.substring(this.start, this.current);
+    const text = this.source.substring(
+      this.start,
+      this.current
+    );
 
     switch (text) {
       case "ask":
@@ -146,6 +152,14 @@ case ">":
         this.addToken(TokenType.IF);
         break;
 
+      case "else":
+        this.addToken(TokenType.ELSE);
+        break;
+
+      case "while":
+        this.addToken(TokenType.WHILE);
+        break;
+
       default:
         this.addToken(TokenType.IDENTIFIER);
         break;
@@ -157,8 +171,12 @@ case ">":
       this.advance();
     }
 
-    if (this.peek() === "." && this.isDigit(this.peekNext())) {
+    if (
+      this.peek() === "." &&
+      this.isDigit(this.peekNext())
+    ) {
       this.advance();
+
       while (this.isDigit(this.peek())) {
         this.advance();
       }
@@ -203,7 +221,6 @@ case ">":
             break;
 
           default:
-            // Keep unknown escape sequences as-is for now.
             value += "\\" + escaped;
             break;
         }
@@ -260,9 +277,16 @@ case ">":
     return this.current >= this.source.length;
   }
 
-  private addToken(type: TokenType, value?: string): void {
+  private addToken(
+    type: TokenType,
+    value?: string
+  ): void {
     const text =
-      value ?? this.source.substring(this.start, this.current);
+      value ??
+      this.source.substring(
+        this.start,
+        this.current
+      );
 
     this.tokens.push({
       type,
@@ -284,6 +308,9 @@ case ">":
   }
 
   private isAlphaNumeric(c: string): boolean {
-    return this.isAlpha(c) || this.isDigit(c);
+    return (
+      this.isAlpha(c) ||
+      this.isDigit(c)
+    );
   }
 }

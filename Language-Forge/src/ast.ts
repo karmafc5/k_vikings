@@ -6,7 +6,8 @@ export type Statement =
   | SetStatement
   | SayStatement
   | AskStatement
-  | IfStatement;
+  | IfStatement
+  | WhileStatement;
 
 export interface SetStatement {
   type: "SetStatement";
@@ -28,6 +29,13 @@ export interface IfStatement {
   type: "IfStatement";
   condition: Expression;
   thenBranch: Statement[];
+  elseBranch?: Statement[];
+}
+
+export interface WhileStatement {
+  type: "WhileStatement";
+  condition: Expression;
+  body: Statement[];
 }
 
 export type Expression =

@@ -4,6 +4,8 @@ export enum TokenType {
   SAY = "SAY",
   SET = "SET",
   IF = "IF",
+  ELSE = "ELSE",
+  WHILE = "WHILE",
 
   // Values
   IDENTIFIER = "IDENTIFIER",

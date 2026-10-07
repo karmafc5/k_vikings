@@ -5,6 +5,7 @@ import {
   SayStatement,
   AskStatement,
   IfStatement,
+  WhileStatement,
   Expression,
 } from "./ast";
 
@@ -34,6 +35,10 @@ export class Interpreter {
       case "IfStatement":
         this.executeIf(statement);
         break;
+
+      case "WhileStatement":
+        this.executeWhile(statement);
+        break;
     }
   }
 
@@ -58,6 +63,18 @@ export class Interpreter {
 
     if (condition === 1) {
       for (const childStatement of statement.thenBranch) {
+        this.execute(childStatement);
+      }
+    } else if (statement.elseBranch) {
+      for (const childStatement of statement.elseBranch) {
+        this.execute(childStatement);
+      }
+    }
+  }
+
+  private executeWhile(statement: WhileStatement): void {
+    while (this.evaluate(statement.condition) === 1) {
+      for (const childStatement of statement.body) {
         this.execute(childStatement);
       }
     }
@@ -90,7 +107,10 @@ export class Interpreter {
 
     switch (expression.operator) {
       case "+":
-        if (typeof left === "string" || typeof right === "string") {
+        if (
+          typeof left === "string" ||
+          typeof right === "string"
+        ) {
           return String(left) + String(right);
         }
 
