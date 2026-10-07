@@ -5,7 +5,8 @@ export interface Program {
 export type Statement =
   | SetStatement
   | SayStatement
-  | AskStatement;
+  | AskStatement
+  | IfStatement;
 
 export interface SetStatement {
   type: "SetStatement";
@@ -21,6 +22,12 @@ export interface SayStatement {
 export interface AskStatement {
   type: "AskStatement";
   name: string;
+}
+
+export interface IfStatement {
+  type: "IfStatement";
+  condition: Expression;
+  thenBranch: Statement[];
 }
 
 export type Expression =

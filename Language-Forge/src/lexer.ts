@@ -142,6 +142,10 @@ case ">":
         this.addToken(TokenType.SET);
         break;
 
+      case "if":
+        this.addToken(TokenType.IF);
+        break;
+
       default:
         this.addToken(TokenType.IDENTIFIER);
         break;

@@ -2,10 +2,10 @@ import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { Interpreter } from "./interpreter";
 
-const source = `set name = "Victor"
-set age = 20
-say "Hello " + name
-say age + 5
+const source = `set age = 15
+
+if age >= 18
+    say "Adult"
 `;
 
 try {

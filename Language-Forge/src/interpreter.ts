@@ -4,6 +4,7 @@ import {
   SetStatement,
   SayStatement,
   AskStatement,
+  IfStatement,
   Expression,
 } from "./ast";
 
@@ -29,6 +30,10 @@ export class Interpreter {
       case "AskStatement":
         this.executeAsk(statement);
         break;
+
+      case "IfStatement":
+        this.executeIf(statement);
+        break;
     }
   }
 
@@ -46,6 +51,16 @@ export class Interpreter {
 
   private executeAsk(statement: AskStatement): void {
     console.log(`ASK: ${statement.name}`);
+  }
+
+  private executeIf(statement: IfStatement): void {
+    const condition = this.evaluate(statement.condition);
+
+    if (condition === 1) {
+      for (const childStatement of statement.thenBranch) {
+        this.execute(childStatement);
+      }
+    }
   }
 
   private evaluate(expression: Expression): string | number {

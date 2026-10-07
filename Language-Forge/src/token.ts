@@ -3,6 +3,7 @@ export enum TokenType {
   ASK = "ASK",
   SAY = "SAY",
   SET = "SET",
+  IF = "IF",
 
   // Values
   IDENTIFIER = "IDENTIFIER",

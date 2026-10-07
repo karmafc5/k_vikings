@@ -5,6 +5,7 @@ import {
   SetStatement,
   SayStatement,
   AskStatement,
+  IfStatement,
   Expression,
   LiteralExpression,
   VariableExpression,
@@ -46,9 +47,13 @@ export class Parser {
       return this.askStatement();
     }
 
+    if (this.match(TokenType.IF)) {
+      return this.ifStatement();
+    }
+
     throw this.error(
       this.peek(),
-      `Expected 'set', 'say', or 'ask'.`
+      `Expected 'set', 'say', 'ask', or 'if'.`
     );
   }
 
@@ -103,6 +108,31 @@ export class Parser {
     return {
       type: "AskStatement",
       name: name.value,
+    };
+  }
+
+  private ifStatement(): IfStatement {
+    const condition = this.expression();
+
+    this.consume(
+      TokenType.NEWLINE,
+      "Expected new line after if condition."
+    );
+
+    while (this.match(TokenType.NEWLINE)) {
+      // Skip empty lines after the if condition.
+    }
+
+    const thenBranch: Statement[] = [];
+
+    if (!this.isAtEnd()) {
+      thenBranch.push(this.statement());
+    }
+
+    return {
+      type: "IfStatement",
+      condition,
+      thenBranch,
     };
   }
 
