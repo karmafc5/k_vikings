@@ -1,10 +1,9 @@
 import { Lexer } from "./lexer";
 
-const source = `set age = 20
-age == 20
-age != 18
-age <= 20
-age >= 18`;
+const source = `say "Hello\\nWorld"
+say "Hello\\tWorld"
+say "He said \\"hello\\""
+say "C:\\\\Users\\\\Victor"`;
 
 const lexer = new Lexer(source);
 const tokens = lexer.scanTokens();
