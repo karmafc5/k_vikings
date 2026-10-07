@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bootstrap": "tsx bootstrap/compiler.ts",
     "build": "tsc",
     "start": "tsx src/main.ts",
     "test": "vitest run",

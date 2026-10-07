@@ -1,26 +1,32 @@
 export enum TokenType {
   // Keywords
-  ASK,
-  SAY,
-  SET,
+  ASK = "ASK",
+  SAY = "SAY",
+  SET = "SET",
 
   // Values
-  IDENTIFIER,
-  NUMBER,
-  STRING,
+  IDENTIFIER = "IDENTIFIER",
+  NUMBER = "NUMBER",
+  STRING = "STRING",
 
   // Operators
-  PLUS,
-  MINUS,
-  STAR,
-  SLASH,
-  EQUAL,
-  LEFT_PAREN,
-  RIGHT_PAREN,
+  PLUS = "PLUS",
+  MINUS = "MINUS",
+  STAR = "STAR",
+  SLASH = "SLASH",
+  EQUAL = "EQUAL",
+  NOT_EQUAL = "NOT_EQUAL",
+  EQUAL_EQUAL = "EQUAL_EQUAL",
+  LESS = "LESS",
+  LESS_EQUAL = "LESS_EQUAL",
+  GREATER = "GREATER",
+  GREATER_EQUAL = "GREATER_EQUAL",
+  LEFT_PAREN = "LEFT_PAREN",
+  RIGHT_PAREN = "RIGHT_PAREN",
 
   // Other
-  NEWLINE,
-  EOF
+  NEWLINE = "NEWLINE",
+  EOF = "EOF",
 }
 
 export interface Token {

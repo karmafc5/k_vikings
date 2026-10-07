@@ -1,0 +1,5 @@
+// Self-hosting compiler draft.
+// Vico currently lacks functions, collections, control flow, and file access,
+// so the working compiler bootstrap is implemented in bootstrap/compiler.ts.
+
+say "The Vico compiler is not self-hosted yet."

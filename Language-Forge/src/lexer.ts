@@ -56,8 +56,12 @@ export class Lexer {
         break;
 
       case "=":
-        this.addToken(TokenType.EQUAL);
-        break;
+  this.addToken(
+    this.match("=")
+      ? TokenType.EQUAL_EQUAL
+      : TokenType.EQUAL
+  );
+  break;
 
       case "(":
         this.addToken(TokenType.LEFT_PAREN);
@@ -76,6 +80,30 @@ export class Lexer {
         this.addToken(TokenType.NEWLINE);
         this.line++;
         break;
+
+        case "!":
+  this.addToken(
+    this.match("=")
+      ? TokenType.NOT_EQUAL
+      : TokenType.NOT_EQUAL
+  );
+  break;
+
+case "<":
+  this.addToken(
+    this.match("=")
+      ? TokenType.LESS_EQUAL
+      : TokenType.LESS
+  );
+  break;
+
+case ">":
+  this.addToken(
+    this.match("=")
+      ? TokenType.GREATER_EQUAL
+      : TokenType.GREATER
+  );
+  break;
 
       case '"':
         this.string();
@@ -172,6 +200,19 @@ export class Lexer {
     });
 
     this.addToken(TokenType.STRING, value);
+  }
+
+  private match(expected: string): boolean {
+    if (this.isAtEnd()) {
+      return false;
+    }
+
+    if (this.source[this.current] !== expected) {
+      return false;
+    }
+
+    this.current++;
+    return true;
   }
 
   private advance(): string {
