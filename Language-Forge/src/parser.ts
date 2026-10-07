@@ -1,191 +1,281 @@
-import {
-	type BinaryExpression,
-	type Expression,
-	type Program,
-	type Statement,
-} from "./ast";
 import { Token, TokenType } from "./token";
+import {
+  Program,
+  Statement,
+  SetStatement,
+  SayStatement,
+  AskStatement,
+  Expression,
+  LiteralExpression,
+  VariableExpression,
+  BinaryExpression,
+} from "./ast";
 
 export class Parser {
-	private current = 0;
+  private tokens: Token[];
+  private current = 0;
 
-	constructor(private readonly tokens: Token[]) {}
+  constructor(tokens: Token[]) {
+    this.tokens = tokens;
+  }
 
-	parse(): Program {
-		const statements: Statement[] = [];
-		this.skipNewlines();
+  parse(): Program {
+    const statements: Statement[] = [];
 
-		while (!this.isAtEnd()) {
-			statements.push(this.statement());
-			if (!this.isAtEnd() && !this.check(TokenType.NEWLINE)) {
-				throw this.error(this.peek(), "Expected a newline after statement.");
-			}
-			this.skipNewlines();
-		}
+    while (!this.isAtEnd()) {
+      if (this.match(TokenType.NEWLINE)) {
+        continue;
+      }
 
-		return { statements };
-	}
+      statements.push(this.statement());
+    }
 
-	private statement(): Statement {
-		if (this.match(TokenType.ASK)) {
-			const keyword = this.previous();
-			const name = this.consume(TokenType.IDENTIFIER, "Expected a variable name after 'ask'.");
-			return { kind: "ask", name: name.value, line: keyword.line };
-		}
+    return { statements };
+  }
 
-		if (this.match(TokenType.SAY)) {
-			const keyword = this.previous();
-			return { kind: "say", expression: this.expression(), line: keyword.line };
-		}
+  private statement(): Statement {
+    if (this.match(TokenType.SET)) {
+      return this.setStatement();
+    }
 
-		if (this.match(TokenType.SET)) {
-			const keyword = this.previous();
-			const name = this.consume(TokenType.IDENTIFIER, "Expected a variable name after 'set'.");
-			this.consume(TokenType.EQUAL, "Expected '=' after the variable name.");
-			return {
-				kind: "set",
-				name: name.value,
-				expression: this.expression(),
-				line: keyword.line,
-			};
-		}
+    if (this.match(TokenType.SAY)) {
+      return this.sayStatement();
+    }
 
-		throw this.error(this.peek(), "Expected 'ask', 'say', or 'set'.");
-	}
+    if (this.match(TokenType.ASK)) {
+      return this.askStatement();
+    }
 
-	private expression(): Expression {
-		return this.addition();
-	}
+    throw this.error(
+      this.peek(),
+      `Expected 'set', 'say', or 'ask'.`
+    );
+  }
 
-	private addition(): Expression {
-		let expression = this.multiplication();
+  private setStatement(): SetStatement {
+    const name = this.consume(
+      TokenType.IDENTIFIER,
+      "Expected variable name after 'set'."
+    );
 
-		while (this.match(TokenType.PLUS, TokenType.MINUS)) {
-			const operator = this.previous();
-			expression = this.binary(expression, operator, this.multiplication());
-		}
+    this.consume(
+      TokenType.EQUAL,
+      "Expected '=' after variable name."
+    );
 
-		return expression;
-	}
+    const value = this.expression();
 
-	private multiplication(): Expression {
-		let expression = this.unary();
+    this.consume(
+      TokenType.NEWLINE,
+      "Expected new line after set statement."
+    );
 
-		while (this.match(TokenType.STAR, TokenType.SLASH)) {
-			const operator = this.previous();
-			expression = this.binary(expression, operator, this.unary());
-		}
+    return {
+      type: "SetStatement",
+      name: name.value,
+      value,
+    };
+  }
 
-		return expression;
-	}
+  private sayStatement(): SayStatement {
+    const expression = this.expression();
 
-	private unary(): Expression {
-		if (this.match(TokenType.MINUS)) {
-			const operator = this.previous();
-			return {
-				kind: "unary",
-				operator: "-",
-				operand: this.unary(),
-				line: operator.line,
-			};
-		}
+    if (this.check(TokenType.NEWLINE)) {
+      this.advance();
+    }
 
-		return this.primary();
-	}
+    return {
+      type: "SayStatement",
+      expression,
+    };
+  }
 
-	private primary(): Expression {
-		if (this.match(TokenType.NUMBER)) {
-			const token = this.previous();
-			return { kind: "literal", value: Number(token.value), line: token.line };
-		}
+  private askStatement(): AskStatement {
+    const name = this.consume(
+      TokenType.IDENTIFIER,
+      "Expected variable name after 'ask'."
+    );
 
-		if (this.match(TokenType.STRING)) {
-			const token = this.previous();
-			return { kind: "literal", value: token.value, line: token.line };
-		}
+    if (this.check(TokenType.NEWLINE)) {
+      this.advance();
+    }
 
-		if (this.match(TokenType.IDENTIFIER)) {
-			const token = this.previous();
-			return { kind: "variable", name: token.value, line: token.line };
-		}
+    return {
+      type: "AskStatement",
+      name: name.value,
+    };
+  }
 
-		if (this.match(TokenType.LEFT_PAREN)) {
-			const expression = this.expression();
-			this.consume(TokenType.RIGHT_PAREN, "Expected ')' after expression.");
-			return expression;
-		}
+  private expression(): Expression {
+    return this.equality();
+  }
 
-		throw this.error(this.peek(), "Expected an expression.");
-	}
+  private equality(): Expression {
+    let expression = this.comparison();
 
-	private binary(
-		left: Expression,
-		operator: Token,
-		right: Expression,
-	): BinaryExpression {
-		const operators: Partial<Record<TokenType, BinaryExpression["operator"]>> = {
-			[TokenType.PLUS]: "+",
-			[TokenType.MINUS]: "-",
-			[TokenType.STAR]: "*",
-			[TokenType.SLASH]: "/",
-		};
-		const symbol = operators[operator.type];
+    while (
+      this.match(TokenType.EQUAL_EQUAL, TokenType.NOT_EQUAL)
+    ) {
+      const operator = this.previous();
+      const right = this.comparison();
 
-		if (!symbol) {
-			throw this.error(operator, "Unsupported binary operator.");
-		}
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
 
-		return { kind: "binary", operator: symbol, left, right, line: operator.line };
-	}
+    return expression;
+  }
 
-	private match(...types: TokenType[]): boolean {
-		if (!types.some((type) => this.check(type))) {
-			return false;
-		}
+  private comparison(): Expression {
+    let expression = this.term();
 
-		this.advance();
-		return true;
-	}
+    while (
+      this.match(
+        TokenType.LESS,
+        TokenType.LESS_EQUAL,
+        TokenType.GREATER,
+        TokenType.GREATER_EQUAL
+      )
+    ) {
+      const operator = this.previous();
+      const right = this.term();
 
-	private consume(type: TokenType, message: string): Token {
-		if (this.check(type)) {
-			return this.advance();
-		}
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
 
-		throw this.error(this.peek(), message);
-	}
+    return expression;
+  }
 
-	private check(type: TokenType): boolean {
-		return this.peek().type === type;
-	}
+  private term(): Expression {
+    let expression = this.factor();
 
-	private advance(): Token {
-		if (!this.isAtEnd()) {
-			this.current++;
-		}
+    while (
+      this.match(TokenType.PLUS, TokenType.MINUS)
+    ) {
+      const operator = this.previous();
+      const right = this.factor();
 
-		return this.previous();
-	}
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
 
-	private isAtEnd(): boolean {
-		return this.check(TokenType.EOF);
-	}
+    return expression;
+  }
 
-	private peek(): Token {
-		return this.tokens[this.current];
-	}
+  private factor(): Expression {
+    let expression = this.primary();
 
-	private previous(): Token {
-		return this.tokens[this.current - 1];
-	}
+    while (
+      this.match(TokenType.STAR, TokenType.SLASH)
+    ) {
+      const operator = this.previous();
+      const right = this.primary();
 
-	private skipNewlines(): void {
-		while (this.match(TokenType.NEWLINE)) {
-			// Blank lines separate statements but do not create AST nodes.
-		}
-	}
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
 
-	private error(token: Token, message: string): Error {
-		return new Error(`[line ${token.line}] ${message}`);
-	}
+    return expression;
+  }
+
+  private primary(): Expression {
+    if (this.match(TokenType.NUMBER)) {
+      return {
+        type: "LiteralExpression",
+        value: Number(this.previous().value),
+      };
+    }
+
+    if (this.match(TokenType.STRING)) {
+      return {
+        type: "LiteralExpression",
+        value: this.previous().value,
+      };
+    }
+
+    if (this.match(TokenType.IDENTIFIER)) {
+      return {
+        type: "VariableExpression",
+        name: this.previous().value,
+      };
+    }
+
+    throw this.error(
+      this.peek(),
+      "Expected expression."
+    );
+  }
+
+  private match(...types: TokenType[]): boolean {
+    for (const type of types) {
+      if (this.check(type)) {
+        this.advance();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private consume(
+    type: TokenType,
+    message: string
+  ): Token {
+    if (this.check(type)) {
+      return this.advance();
+    }
+
+    throw this.error(this.peek(), message);
+  }
+
+  private check(type: TokenType): boolean {
+    if (this.isAtEnd()) {
+      return type === TokenType.EOF;
+    }
+
+    return this.peek().type === type;
+  }
+
+  private advance(): Token {
+    if (!this.isAtEnd()) {
+      this.current++;
+    }
+
+    return this.previous();
+  }
+
+  private isAtEnd(): boolean {
+    return this.peek().type === TokenType.EOF;
+  }
+
+  private peek(): Token {
+    return this.tokens[this.current];
+  }
+
+  private previous(): Token {
+    return this.tokens[this.current - 1];
+  }
+
+  private error(token: Token, message: string): Error {
+    return new Error(
+      `[line ${token.line}] Error: ${message}`
+    );
+  }
 }

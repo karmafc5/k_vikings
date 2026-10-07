@@ -1,15 +1,22 @@
 import { Lexer } from "./lexer";
+import { Parser } from "./parser";
+import { Interpreter } from "./interpreter";
 
-const source = `say "Hello\\nWorld"
-say "Hello\\tWorld"
-say "He said \\"hello\\""
-say "C:\\\\Users\\\\Victor"`;
+const source = `set name = "Victor"
+set age = 20
+say "Hello " + name
+say age + 5
+`;
 
-const lexer = new Lexer(source);
-const tokens = lexer.scanTokens();
+try {
+  const lexer = new Lexer(source);
+  const tokens = lexer.scanTokens();
 
-for (const token of tokens) {
-  console.log(
-    `${token.type}: "${token.value}" (line ${token.line})`
-  );
+  const parser = new Parser(tokens);
+  const ast = parser.parse();
+
+  const interpreter = new Interpreter();
+  interpreter.interpret(ast);
+} catch (error) {
+  console.error((error as Error).message);
 }

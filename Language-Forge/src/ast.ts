@@ -1,57 +1,46 @@
 export interface Program {
-	statements: Statement[];
+  statements: Statement[];
 }
 
-export type Statement = AskStatement | SayStatement | SetStatement;
+export type Statement =
+  | SetStatement
+  | SayStatement
+  | AskStatement;
 
-export interface AskStatement {
-	kind: "ask";
-	name: string;
-	line: number;
+export interface SetStatement {
+  type: "SetStatement";
+  name: string;
+  value: Expression;
 }
 
 export interface SayStatement {
-	kind: "say";
-	expression: Expression;
-	line: number;
+  type: "SayStatement";
+  expression: Expression;
 }
 
-export interface SetStatement {
-	kind: "set";
-	name: string;
-	expression: Expression;
-	line: number;
+export interface AskStatement {
+  type: "AskStatement";
+  name: string;
 }
 
 export type Expression =
-	| LiteralExpression
-	| VariableExpression
-	| UnaryExpression
-	| BinaryExpression;
+  | LiteralExpression
+  | VariableExpression
+  | BinaryExpression;
 
 export interface LiteralExpression {
-	kind: "literal";
-	value: number | string;
-	line: number;
+  type: "LiteralExpression";
+  value: string | number;
 }
 
 export interface VariableExpression {
-	kind: "variable";
-	name: string;
-	line: number;
-}
-
-export interface UnaryExpression {
-	kind: "unary";
-	operator: "-";
-	operand: Expression;
-	line: number;
+  type: "VariableExpression";
+  name: string;
 }
 
 export interface BinaryExpression {
-	kind: "binary";
-	operator: "+" | "-" | "*" | "/";
-	left: Expression;
-	right: Expression;
-	line: number;
+  type: "BinaryExpression";
+  left: Expression;
+  operator: string;
+  right: Expression;
 }
