@@ -164,42 +164,59 @@ case ">":
   }
 
   private string(): void {
-    while (this.peek() !== '"' && !this.isAtEnd()) {
-      if (this.peek() === "\\") {
-        this.advance();
-        if (!this.isAtEnd()) {
-          this.advance();
+    let value = "";
+
+    while (!this.isAtEnd()) {
+      const c = this.advance();
+
+      if (c === '"') {
+        this.addToken(TokenType.STRING, value);
+        return;
+      }
+
+      if (c === "\\") {
+        if (this.isAtEnd()) {
+          break;
         }
-      } else if (this.peek() === "\n") {
+
+        const escaped = this.advance();
+
+        switch (escaped) {
+          case "n":
+            value += "\n";
+            break;
+
+          case "t":
+            value += "\t";
+            break;
+
+          case "\\":
+            value += "\\";
+            break;
+
+          case '"':
+            value += '"';
+            break;
+
+          default:
+            // Keep unknown escape sequences as-is for now.
+            value += "\\" + escaped;
+            break;
+        }
+
+        continue;
+      }
+
+      if (c === "\n") {
         this.line++;
-        this.advance();
-      } else {
-        this.advance();
       }
+
+      value += c;
     }
 
-    if (this.isAtEnd()) {
-      throw new Error(
-        `[line ${this.line}] Unterminated string.`
-      );
-    }
-
-    this.advance();
-
-    const rawValue = this.source.substring(
-      this.start + 1,
-      this.current - 1
+    throw new Error(
+      `[line ${this.line}] Error: Unterminated string.`
     );
-    const value = rawValue.replace(/\\([\\nrt"])/g, (_match, escaped: string) => {
-      switch (escaped) {
-        case "n": return "\n";
-        case "r": return "\r";
-        case "t": return "\t";
-        default: return escaped;
-      }
-    });
-
-    this.addToken(TokenType.STRING, value);
   }
 
   private match(expected: string): boolean {
