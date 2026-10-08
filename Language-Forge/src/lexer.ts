@@ -7,7 +7,13 @@ export class Lexer {
   private start = 0;
   private current = 0;
   private line = 1;
-  private tokenLine = 1;
+
+  // Indentation levels.
+  // 0 means the top level.
+  private indentStack: number[] = [0];
+
+  // True when we are at the beginning of a line.
+  private atLineStart = true;
 
   constructor(source: string) {
     this.source = source;
@@ -16,117 +22,437 @@ export class Lexer {
   scanTokens(): Token[] {
     while (!this.isAtEnd()) {
       this.start = this.current;
-      this.tokenLine = this.line;
+
+      /*
+       * At the beginning of every line, determine
+       * whether we need INDENT or DEDENT.
+       */
+      if (this.atLineStart) {
+        this.handleIndentation();
+
+        if (this.isAtEnd()) {
+          break;
+        }
+
+        /*
+         * handleIndentation can consume a blank line.
+         * If we're still at the beginning of a line,
+         * start the loop again.
+         */
+        if (this.atLineStart) {
+          continue;
+        }
+      }
+
+      this.start = this.current;
       this.scanToken();
     }
 
-    this.tokens.push({
-      type: TokenType.EOF,
-      value: "",
-      line: this.line,
-    });
+    /*
+     * Close any blocks still open when the file ends.
+     */
+    while (this.indentStack.length > 1) {
+      this.indentStack.pop();
+
+      this.addToken(
+        TokenType.DEDENT,
+        "",
+        this.line
+      );
+    }
+
+    this.addToken(
+      TokenType.EOF,
+      "",
+      this.line
+    );
 
     return this.tokens;
   }
 
+  // ==================================================
+  // MAIN SCANNER
+  // ==================================================
+
   private scanToken(): void {
     const c = this.advance();
 
+    // Ignore spaces and tabs inside statements.
+    if (c === " " || c === "\t") {
+      return;
+    }
+
+    // ------------------------------------------------
+    // NEWLINE
+    // ------------------------------------------------
+
+    if (c === "\n") {
+      this.addToken(
+        TokenType.NEWLINE,
+        "\n",
+        this.line
+      );
+
+      this.line++;
+      this.atLineStart = true;
+
+      return;
+    }
+
+    // Windows CRLF
+    if (c === "\r") {
+      if (this.peek() === "\n") {
+        this.advance();
+      }
+
+      this.addToken(
+        TokenType.NEWLINE,
+        "\n",
+        this.line
+      );
+
+      this.line++;
+      this.atLineStart = true;
+
+      return;
+    }
+
+    // ------------------------------------------------
+    // COMMENTS
+    // ------------------------------------------------
+
+    if (c === "#") {
+      this.skipComment();
+      return;
+    }
+
+    // ------------------------------------------------
+    // SINGLE CHARACTER TOKENS
+    // ------------------------------------------------
+
     switch (c) {
-      case "+":
-        this.addToken(TokenType.PLUS);
-        break;
-
-      case "-":
-        this.addToken(TokenType.MINUS);
-        break;
-
-      case "*":
-        this.addToken(TokenType.STAR);
-        break;
-
-      case "/":
-        if (this.peek() === "/") {
-          while (
-            this.peek() !== "\n" &&
-            !this.isAtEnd()
-          ) {
-            this.advance();
-          }
-        } else {
-          this.addToken(TokenType.SLASH);
-        }
-        break;
-
-      case "=":
-        this.addToken(
-          this.match("=")
-            ? TokenType.EQUAL_EQUAL
-            : TokenType.EQUAL
-        );
-        break;
-
       case "(":
-        this.addToken(TokenType.LEFT_PAREN);
-        break;
+        this.addToken(
+          TokenType.LEFT_PAREN,
+          "(",
+          this.line
+        );
+        return;
 
       case ")":
-        this.addToken(TokenType.RIGHT_PAREN);
-        break;
+        this.addToken(
+          TokenType.RIGHT_PAREN,
+          ")",
+          this.line
+        );
+        return;
 
-      case " ":
-      case "\r":
-      case "\t":
-        break;
+      case "+":
+        this.addToken(
+          TokenType.PLUS,
+          "+",
+          this.line
+        );
+        return;
 
-      case "\n":
-        this.addToken(TokenType.NEWLINE);
-        this.line++;
-        break;
+      case "-":
+        this.addToken(
+          TokenType.MINUS,
+          "-",
+          this.line
+        );
+        return;
+
+      case "*":
+        this.addToken(
+          TokenType.STAR,
+          "*",
+          this.line
+        );
+        return;
+
+      case "/":
+        this.addToken(
+          TokenType.SLASH,
+          "/",
+          this.line
+        );
+        return;
+
+      // ------------------------------------------------
+      // EQUAL / EQUAL_EQUAL
+      // ------------------------------------------------
+
+      case "=":
+        if (this.match("=")) {
+          this.addToken(
+            TokenType.EQUAL_EQUAL,
+            "==",
+            this.line
+          );
+        } else {
+          this.addToken(
+            TokenType.EQUAL,
+            "=",
+            this.line
+          );
+        }
+        return;
+
+      // ------------------------------------------------
+      // NOT_EQUAL
+      // ------------------------------------------------
 
       case "!":
-        this.addToken(
-          this.match("=")
-            ? TokenType.NOT_EQUAL
-            : TokenType.NOT_EQUAL
-        );
-        break;
+        if (this.match("=")) {
+          this.addToken(
+            TokenType.NOT_EQUAL,
+            "!=",
+            this.line
+          );
+        } else {
+          this.error(
+            "Unexpected character: !"
+          );
+        }
+        return;
+
+      // ------------------------------------------------
+      // LESS / LESS_EQUAL
+      // ------------------------------------------------
 
       case "<":
-        this.addToken(
-          this.match("=")
-            ? TokenType.LESS_EQUAL
-            : TokenType.LESS
-        );
-        break;
+        if (this.match("=")) {
+          this.addToken(
+            TokenType.LESS_EQUAL,
+            "<=",
+            this.line
+          );
+        } else {
+          this.addToken(
+            TokenType.LESS,
+            "<",
+            this.line
+          );
+        }
+        return;
+
+      // ------------------------------------------------
+      // GREATER / GREATER_EQUAL
+      // ------------------------------------------------
 
       case ">":
-        this.addToken(
-          this.match("=")
-            ? TokenType.GREATER_EQUAL
-            : TokenType.GREATER
-        );
-        break;
+        if (this.match("=")) {
+          this.addToken(
+            TokenType.GREATER_EQUAL,
+            ">=",
+            this.line
+          );
+        } else {
+          this.addToken(
+            TokenType.GREATER,
+            ">",
+            this.line
+          );
+        }
+        return;
+
+      // ------------------------------------------------
+      // STRING
+      // ------------------------------------------------
 
       case '"':
         this.string();
-        break;
+        return;
 
       default:
-        if (this.isDigit(c)) {
-          this.number();
-        } else if (this.isAlpha(c)) {
-          this.identifier();
-        } else {
-          throw new Error(
-            `[line ${this.line}] Unexpected character: ${c}`
-          );
-        }
+        break;
     }
+
+    // ------------------------------------------------
+    // NUMBER
+    // ------------------------------------------------
+
+    if (this.isDigit(c)) {
+      this.number();
+      return;
+    }
+
+    // ------------------------------------------------
+    // IDENTIFIER / KEYWORD
+    // ------------------------------------------------
+
+    if (this.isAlpha(c)) {
+      this.identifier();
+      return;
+    }
+
+    this.error(
+      `Unexpected character: ${c}`
+    );
   }
 
+  // ==================================================
+  // INDENTATION
+  // ==================================================
+
+  private handleIndentation(): void {
+    let indentation = 0;
+
+    /*
+     * Count spaces and tabs at the beginning
+     * of the line.
+     */
+    while (!this.isAtEnd()) {
+      const c = this.peek();
+
+      if (c === " ") {
+        indentation++;
+        this.advance();
+        continue;
+      }
+
+      if (c === "\t") {
+        // One tab = four spaces.
+        indentation += 4;
+        this.advance();
+        continue;
+      }
+
+      break;
+    }
+
+    /*
+     * -----------------------------------------------
+     * BLANK LINE
+     * -----------------------------------------------
+     *
+     * This is the important fix.
+     *
+     * If we find a blank line, consume the newline
+     * here so the lexer doesn't get stuck forever.
+     */
+
+    if (this.peek() === "\n") {
+      this.advance();
+
+      this.addToken(
+        TokenType.NEWLINE,
+        "\n",
+        this.line
+      );
+
+      this.line++;
+
+      this.atLineStart = true;
+
+      return;
+    }
+
+    /*
+     * Windows blank line.
+     */
+    if (this.peek() === "\r") {
+      this.advance();
+
+      if (this.peek() === "\n") {
+        this.advance();
+      }
+
+      this.addToken(
+        TokenType.NEWLINE,
+        "\n",
+        this.line
+      );
+
+      this.line++;
+
+      this.atLineStart = true;
+
+      return;
+    }
+
+    /*
+     * Comment-only line.
+     */
+    if (this.peek() === "#") {
+      this.skipComment();
+
+      /*
+       * The next scan will process the newline.
+       */
+      return;
+    }
+
+    const currentIndent =
+      this.indentStack[
+        this.indentStack.length - 1
+      ];
+
+    // ------------------------------------------------
+    // INCREASE INDENTATION
+    // ------------------------------------------------
+
+    if (indentation > currentIndent) {
+      this.indentStack.push(indentation);
+
+      this.addToken(
+        TokenType.INDENT,
+        "",
+        this.line
+      );
+
+      this.atLineStart = false;
+
+      return;
+    }
+
+    // ------------------------------------------------
+    // DECREASE INDENTATION
+    // ------------------------------------------------
+
+    if (indentation < currentIndent) {
+      while (
+        this.indentStack.length > 1 &&
+        indentation <
+          this.indentStack[
+            this.indentStack.length - 1
+          ]
+      ) {
+        this.indentStack.pop();
+
+        this.addToken(
+          TokenType.DEDENT,
+          "",
+          this.line
+        );
+      }
+
+      const newCurrentIndent =
+        this.indentStack[
+          this.indentStack.length - 1
+        ];
+
+      if (
+        indentation !== newCurrentIndent
+      ) {
+        this.error(
+          "Invalid indentation."
+        );
+      }
+    }
+
+    this.atLineStart = false;
+  }
+
+  // ==================================================
+  // IDENTIFIERS
+  // ==================================================
+
   private identifier(): void {
-    while (this.isAlphaNumeric(this.peek())) {
+    while (
+      this.isAlphaNumeric(this.peek())
+    ) {
       this.advance();
     }
 
@@ -135,68 +461,105 @@ export class Lexer {
       this.current
     );
 
+    let type: TokenType;
+
     switch (text) {
-      case "ask":
-        this.addToken(TokenType.ASK);
+      case "set":
+        type = TokenType.SET;
         break;
 
       case "say":
-        this.addToken(TokenType.SAY);
+        type = TokenType.SAY;
         break;
 
-      case "set":
-        this.addToken(TokenType.SET);
+      case "ask":
+        type = TokenType.ASK;
         break;
 
       case "if":
-        this.addToken(TokenType.IF);
+        type = TokenType.IF;
         break;
 
       case "else":
-        this.addToken(TokenType.ELSE);
+        type = TokenType.ELSE;
         break;
 
       case "while":
-        this.addToken(TokenType.WHILE);
+        type = TokenType.WHILE;
+        break;
+
+      case "function":
+        type = TokenType.FUNCTION;
+        break;
+
+      case "return":
+        type = TokenType.RETURN;
         break;
 
       default:
-        this.addToken(TokenType.IDENTIFIER);
+        type = TokenType.IDENTIFIER;
         break;
     }
+
+    this.addToken(
+      type,
+      text,
+      this.line
+    );
   }
 
+  // ==================================================
+  // NUMBERS
+  // ==================================================
+
   private number(): void {
-    while (this.isDigit(this.peek())) {
+    while (
+      this.isDigit(this.peek())
+    ) {
       this.advance();
     }
 
+    // Decimal numbers.
     if (
       this.peek() === "." &&
       this.isDigit(this.peekNext())
     ) {
       this.advance();
 
-      while (this.isDigit(this.peek())) {
+      while (
+        this.isDigit(this.peek())
+      ) {
         this.advance();
       }
     }
 
-    this.addToken(TokenType.NUMBER);
+    const value = this.source.substring(
+      this.start,
+      this.current
+    );
+
+    this.addToken(
+      TokenType.NUMBER,
+      value,
+      this.line
+    );
   }
+
+  // ==================================================
+  // STRINGS
+  // ==================================================
 
   private string(): void {
     let value = "";
 
-    while (!this.isAtEnd()) {
-      const c = this.advance();
+    while (
+      !this.isAtEnd() &&
+      this.peek() !== '"'
+    ) {
+      // Escape sequence.
+      if (this.peek() === "\\") {
+        this.advance();
 
-      if (c === '"') {
-        this.addToken(TokenType.STRING, value);
-        return;
-      }
-
-      if (c === "\\") {
         if (this.isAtEnd()) {
           break;
         }
@@ -221,40 +584,71 @@ export class Lexer {
             break;
 
           default:
-            value += "\\" + escaped;
+            value += escaped;
             break;
         }
 
         continue;
       }
 
-      if (c === "\n") {
+      if (this.peek() === "\n") {
         this.line++;
       }
 
-      value += c;
+      value += this.advance();
     }
 
-    throw new Error(
-      `[line ${this.line}] Error: Unterminated string.`
+    if (this.isAtEnd()) {
+      this.error(
+        "Unterminated string."
+      );
+      return;
+    }
+
+    // Closing quote.
+    this.advance();
+
+    this.addToken(
+      TokenType.STRING,
+      value,
+      this.line
     );
   }
 
-  private match(expected: string): boolean {
+  // ==================================================
+  // COMMENTS
+  // ==================================================
+
+  private skipComment(): void {
+    while (
+      this.peek() !== "\n" &&
+      this.peek() !== "\r" &&
+      !this.isAtEnd()
+    ) {
+      this.advance();
+    }
+  }
+
+  // ==================================================
+  // HELPERS
+  // ==================================================
+
+  private match(
+    expected: string
+  ): boolean {
     if (this.isAtEnd()) {
       return false;
     }
 
-    if (this.source[this.current] !== expected) {
+    if (
+      this.source[this.current] !== expected
+    ) {
       return false;
     }
 
     this.current++;
-    return true;
-  }
 
-  private advance(): string {
-    return this.source[this.current++];
+    return true;
   }
 
   private peek(): string {
@@ -266,40 +660,45 @@ export class Lexer {
   }
 
   private peekNext(): string {
-    if (this.current + 1 >= this.source.length) {
+    if (
+      this.current + 1 >=
+      this.source.length
+    ) {
       return "\0";
     }
 
-    return this.source[this.current + 1];
+    return this.source[
+      this.current + 1
+    ];
+  }
+
+  private advance(): string {
+    this.current++;
+
+    return this.source[
+      this.current - 1
+    ];
   }
 
   private isAtEnd(): boolean {
-    return this.current >= this.source.length;
+    return (
+      this.current >=
+      this.source.length
+    );
   }
 
-  private addToken(
-    type: TokenType,
-    value?: string
-  ): void {
-    const text =
-      value ??
-      this.source.substring(
-        this.start,
-        this.current
-      );
-
-    this.tokens.push({
-      type,
-      value: text,
-      line: this.tokenLine,
-    });
+  private isDigit(
+    c: string
+  ): boolean {
+    return (
+      c >= "0" &&
+      c <= "9"
+    );
   }
 
-  private isDigit(c: string): boolean {
-    return c >= "0" && c <= "9";
-  }
-
-  private isAlpha(c: string): boolean {
+  private isAlpha(
+    c: string
+  ): boolean {
     return (
       (c >= "a" && c <= "z") ||
       (c >= "A" && c <= "Z") ||
@@ -307,10 +706,32 @@ export class Lexer {
     );
   }
 
-  private isAlphaNumeric(c: string): boolean {
+  private isAlphaNumeric(
+    c: string
+  ): boolean {
     return (
       this.isAlpha(c) ||
       this.isDigit(c)
+    );
+  }
+
+  private addToken(
+    type: TokenType,
+    value: string,
+    line: number
+  ): void {
+    this.tokens.push({
+      type,
+      value,
+      line,
+    });
+  }
+
+  private error(
+    message: string
+  ): void {
+    throw new Error(
+      `[line ${this.line}] Error: ${message}`
     );
   }
 }

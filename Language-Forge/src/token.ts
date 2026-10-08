@@ -6,6 +6,10 @@ export enum TokenType {
   IF = "IF",
   ELSE = "ELSE",
   WHILE = "WHILE",
+  FUNCTION = "FUNCTION",
+  RETURN = "RETURN",
+  INDENT = "INDENT",
+  DEDENT = "DEDENT",
 
   // Values
   IDENTIFIER = "IDENTIFIER",

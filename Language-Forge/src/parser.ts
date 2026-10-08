@@ -19,12 +19,25 @@ export class Parser {
     this.tokens = tokens;
   }
 
+  // -------------------------
+  // PROGRAM
+  // -------------------------
+
   parse(): Program {
     const statements: Statement[] = [];
 
     while (!this.isAtEnd()) {
+      // Ignore blank lines at the top level
       if (this.match(TokenType.NEWLINE)) {
         continue;
+      }
+
+      // INDENT should only appear inside a block
+      if (this.check(TokenType.INDENT)) {
+        throw this.error(
+          this.peek(),
+          "Unexpected indentation."
+        );
       }
 
       statements.push(this.statement());
@@ -32,6 +45,10 @@ export class Parser {
 
     return { statements };
   }
+
+  // -------------------------
+  // STATEMENTS
+  // -------------------------
 
   private statement(): Statement {
     if (this.match(TokenType.SET)) {
@@ -56,9 +73,13 @@ export class Parser {
 
     throw this.error(
       this.peek(),
-      `Expected 'set', 'say', 'ask', 'if', or 'while'.`
+      "Expected 'set', 'say', 'ask', 'if', or 'while'."
     );
   }
+
+  // -------------------------
+  // SET
+  // -------------------------
 
   private setStatement(): SetStatement {
     const name = this.consume(
@@ -85,6 +106,10 @@ export class Parser {
     };
   }
 
+  // -------------------------
+  // SAY
+  // -------------------------
+
   private sayStatement(): SayStatement {
     const expression = this.expression();
 
@@ -97,6 +122,10 @@ export class Parser {
       expression,
     };
   }
+
+  // -------------------------
+  // ASK
+  // -------------------------
 
   private askStatement(): AskStatement {
     const name = this.consume(
@@ -114,6 +143,10 @@ export class Parser {
     };
   }
 
+  // -------------------------
+  // IF
+  // -------------------------
+
   private ifStatement(): IfStatement {
     const condition = this.expression();
 
@@ -122,24 +155,36 @@ export class Parser {
       "Expected new line after if condition."
     );
 
-    while (this.match(TokenType.NEWLINE)) {
-      // Skip empty lines.
-    }
+    // Ignore blank lines before the block
+    this.skipNewlines();
+
+    this.consume(
+      TokenType.INDENT,
+      "Expected indented block after if."
+    );
 
     const thenBranch: Statement[] = [];
 
     while (
       !this.isAtEnd() &&
-      !this.check(TokenType.ELSE)
+      !this.check(TokenType.DEDENT)
     ) {
-      thenBranch.push(this.statement());
-
-      while (this.match(TokenType.NEWLINE)) {
-        // Skip empty lines.
+      if (this.match(TokenType.NEWLINE)) {
+        continue;
       }
+
+      thenBranch.push(this.statement());
     }
 
+    this.consume(
+      TokenType.DEDENT,
+      "Expected end of if block."
+    );
+
     let elseBranch: Statement[] | undefined;
+
+    // Allow blank lines between if and else
+    this.skipNewlines();
 
     if (this.match(TokenType.ELSE)) {
       this.consume(
@@ -147,19 +192,30 @@ export class Parser {
         "Expected new line after else."
       );
 
-      while (this.match(TokenType.NEWLINE)) {
-        // Skip empty lines.
-      }
+      this.skipNewlines();
+
+      this.consume(
+        TokenType.INDENT,
+        "Expected indented block after else."
+      );
 
       elseBranch = [];
 
-      while (!this.isAtEnd()) {
-        elseBranch.push(this.statement());
-
-        while (this.match(TokenType.NEWLINE)) {
-          // Skip empty lines.
+      while (
+        !this.isAtEnd() &&
+        !this.check(TokenType.DEDENT)
+      ) {
+        if (this.match(TokenType.NEWLINE)) {
+          continue;
         }
+
+        elseBranch.push(this.statement());
       }
+
+      this.consume(
+        TokenType.DEDENT,
+        "Expected end of else block."
+      );
     }
 
     return {
@@ -170,6 +226,10 @@ export class Parser {
     };
   }
 
+  // -------------------------
+  // WHILE
+  // -------------------------
+
   private whileStatement(): WhileStatement {
     const condition = this.expression();
 
@@ -178,19 +238,31 @@ export class Parser {
       "Expected new line after while condition."
     );
 
-    while (this.match(TokenType.NEWLINE)) {
-      // Skip empty lines.
-    }
+    // Ignore blank lines before the block
+    this.skipNewlines();
+
+    this.consume(
+      TokenType.INDENT,
+      "Expected indented block after while."
+    );
 
     const body: Statement[] = [];
 
-    while (!this.isAtEnd()) {
-      body.push(this.statement());
-
-      while (this.match(TokenType.NEWLINE)) {
-        // Skip empty lines.
+    while (
+      !this.isAtEnd() &&
+      !this.check(TokenType.DEDENT)
+    ) {
+      if (this.match(TokenType.NEWLINE)) {
+        continue;
       }
+
+      body.push(this.statement());
     }
+
+    this.consume(
+      TokenType.DEDENT,
+      "Expected end of while block."
+    );
 
     return {
       type: "WhileStatement",
@@ -199,9 +271,19 @@ export class Parser {
     };
   }
 
+  // -------------------------
+  // EXPRESSIONS
+  // -------------------------
+
   private expression(): Expression {
     return this.equality();
   }
+
+  // -------------------------
+  // EQUALITY
+  // ==
+  // !=
+  // -------------------------
 
   private equality(): Expression {
     let expression = this.comparison();
@@ -225,6 +307,14 @@ export class Parser {
 
     return expression;
   }
+
+  // -------------------------
+  // COMPARISON
+  // <
+  // <=
+  // >
+  // >=
+  // -------------------------
 
   private comparison(): Expression {
     let expression = this.term();
@@ -251,6 +341,12 @@ export class Parser {
     return expression;
   }
 
+  // -------------------------
+  // TERM
+  // +
+  // -
+  // -------------------------
+
   private term(): Expression {
     let expression = this.factor();
 
@@ -274,6 +370,12 @@ export class Parser {
     return expression;
   }
 
+  // -------------------------
+  // FACTOR
+  // *
+  // /
+  // -------------------------
+
   private factor(): Expression {
     let expression = this.primary();
 
@@ -296,6 +398,10 @@ export class Parser {
 
     return expression;
   }
+
+  // -------------------------
+  // PRIMARY
+  // -------------------------
 
   private primary(): Expression {
     if (this.match(TokenType.NUMBER)) {
@@ -324,6 +430,20 @@ export class Parser {
       "Expected expression."
     );
   }
+
+  // -------------------------
+  // NEWLINE HELPER
+  // -------------------------
+
+  private skipNewlines(): void {
+    while (this.match(TokenType.NEWLINE)) {
+      // Keep consuming blank lines
+    }
+  }
+
+  // -------------------------
+  // TOKEN HELPERS
+  // -------------------------
 
   private match(...types: TokenType[]): boolean {
     for (const type of types) {

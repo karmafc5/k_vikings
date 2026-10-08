@@ -7,17 +7,15 @@ const source = `set count = 1
 while count <= 5
     say count
     set count = count + 1
+
+say "Finished"
 `;
 
-try {
-  const lexer = new Lexer(source);
-  const tokens = lexer.scanTokens();
+const lexer = new Lexer(source);
+const tokens = lexer.scanTokens();
 
-  const parser = new Parser(tokens);
-  const ast = parser.parse();
+const parser = new Parser(tokens);
+const program = parser.parse();
 
-  const interpreter = new Interpreter();
-  interpreter.interpret(ast);
-} catch (error) {
-  console.error((error as Error).message);
-}
+const interpreter = new Interpreter();
+interpreter.interpret(program);
