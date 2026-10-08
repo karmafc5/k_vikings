@@ -465,6 +465,20 @@ export class Parser {
       };
     }
 
+    if (this.match(TokenType.MINUS)) {
+      const right = this.unary();
+
+      return {
+        type: "BinaryExpression",
+        left: {
+          type: "LiteralExpression",
+          value: 0,
+        },
+        operator: "-",
+        right,
+      };
+    }
+
     return this.primary();
   }
 

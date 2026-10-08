@@ -8,22 +8,55 @@ import {
   AskStatement,
   IfStatement,
   WhileStatement,
+  FunctionStatement,
+  ReturnStatement,
   Expression,
   BinaryExpression,
+  CallExpression,
 } from "./ast";
 
 type Value = string | number | boolean;
 
+class ReturnSignal {
+  constructor(public value: Value | undefined) {}
+}
+
 export class Interpreter {
   private variables = new Map<string, Value>();
+  private functions = new Map<string, FunctionStatement>();
 
   async interpret(program: Program): Promise<void> {
+    // First collect all function declarations.
+    // This allows a function to be called before or after
+    // its declaration in the Vico program.
     for (const statement of program.statements) {
+      if (statement.type === "FunctionStatement") {
+        if (this.functions.has(statement.name)) {
+          throw new Error(
+            `Function '${statement.name}' is already defined.`
+          );
+        }
+
+        this.functions.set(
+          statement.name,
+          statement
+        );
+      }
+    }
+
+    // Execute the normal top-level statements.
+    for (const statement of program.statements) {
+      if (statement.type === "FunctionStatement") {
+        continue;
+      }
+
       await this.execute(statement);
     }
   }
 
-  private async execute(statement: Statement): Promise<void> {
+  private async execute(
+    statement: Statement
+  ): Promise<void> {
     switch (statement.type) {
       case "SetStatement":
         await this.executeSet(statement);
@@ -46,17 +79,20 @@ export class Interpreter {
         break;
 
       case "FunctionStatement":
-        throw new Error(
-          `Function '${statement.name}' is not implemented yet.`
+        this.functions.set(
+          statement.name,
+          statement
         );
+        break;
 
       case "ReturnStatement":
-        throw new Error(
-          "'return' can only be used inside a function."
-        );
+        await this.executeReturn(statement);
+        break;
 
       case "ExpressionStatement":
-        this.evaluate(statement.expression);
+        await this.evaluate(
+          statement.expression
+        );
         break;
     }
   }
@@ -64,7 +100,9 @@ export class Interpreter {
   private async executeSet(
     statement: SetStatement
   ): Promise<void> {
-    const value = this.evaluate(statement.value);
+    const value = await this.evaluate(
+      statement.value
+    );
 
     this.variables.set(
       statement.name,
@@ -75,7 +113,7 @@ export class Interpreter {
   private async executeSay(
     statement: SayStatement
   ): Promise<void> {
-    const value = this.evaluate(
+    const value = await this.evaluate(
       statement.expression
     );
 
@@ -89,9 +127,13 @@ export class Interpreter {
       statement.prompt ??
       `What is ${statement.name}? `;
 
-    const answer = await this.getInput(question);
+    const answer = await this.getInput(
+      question
+    );
 
-    const value = this.convertInput(answer);
+    const value = this.convertInput(
+      answer
+    );
 
     this.variables.set(
       statement.name,
@@ -99,13 +141,28 @@ export class Interpreter {
     );
   }
 
+  private async executeReturn(
+    statement: ReturnStatement
+  ): Promise<void> {
+    let value: Value | undefined;
+
+    if (statement.value) {
+      value = await this.evaluate(
+        statement.value
+      );
+    }
+
+    throw new ReturnSignal(value);
+  }
+
   private getInput(
     question: string
   ): Promise<string> {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
+    const rl =
+      readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
 
     return new Promise((resolve) => {
       rl.question(
@@ -123,11 +180,15 @@ export class Interpreter {
   ): Value {
     const value = input.trim();
 
-    if (value.toLowerCase() === "true") {
+    if (
+      value.toLowerCase() === "true"
+    ) {
       return true;
     }
 
-    if (value.toLowerCase() === "false") {
+    if (
+      value.toLowerCase() === "false"
+    ) {
       return false;
     }
 
@@ -144,17 +205,21 @@ export class Interpreter {
   private async executeIf(
     statement: IfStatement
   ): Promise<void> {
-    const condition = this.evaluate(
+    const condition = await this.evaluate(
       statement.condition
     );
 
     if (this.isTruthy(condition)) {
       for (const childStatement of statement.thenBranch) {
-        await this.execute(childStatement);
+        await this.execute(
+          childStatement
+        );
       }
     } else if (statement.elseBranch) {
       for (const childStatement of statement.elseBranch) {
-        await this.execute(childStatement);
+        await this.execute(
+          childStatement
+        );
       }
     }
   }
@@ -164,18 +229,22 @@ export class Interpreter {
   ): Promise<void> {
     while (
       this.isTruthy(
-        this.evaluate(statement.condition)
+        await this.evaluate(
+          statement.condition
+        )
       )
     ) {
       for (const childStatement of statement.body) {
-        await this.execute(childStatement);
+        await this.execute(
+          childStatement
+        );
       }
     }
   }
 
-  private evaluate(
+  private async evaluate(
     expression: Expression
-  ): Value {
+  ): Promise<Value> {
     switch (expression.type) {
       case "LiteralExpression":
         return expression.value;
@@ -186,14 +255,99 @@ export class Interpreter {
         );
 
       case "BinaryExpression":
-        return this.evaluateBinary(
+        return await this.evaluateBinary(
           expression
         );
 
       case "CallExpression":
-        throw new Error(
-          `Function '${expression.name}' is not implemented yet.`
+        return await this.executeCall(
+          expression
         );
+    }
+  }
+
+  private async executeCall(
+    expression: CallExpression
+  ): Promise<Value> {
+    const functionStatement =
+      this.functions.get(
+        expression.name
+      );
+
+    if (!functionStatement) {
+      throw new Error(
+        `Undefined function '${expression.name}'.`
+      );
+    }
+
+    if (
+      expression.arguments.length !==
+      functionStatement.parameters.length
+    ) {
+      throw new Error(
+        `Function '${expression.name}' expects ${functionStatement.parameters.length} argument(s), but got ${expression.arguments.length}.`
+      );
+    }
+
+    // Evaluate the arguments BEFORE changing
+    // the current variable scope.
+    const argumentValues: Value[] = [];
+
+    for (
+      const argument of expression.arguments
+    ) {
+      argumentValues.push(
+        await this.evaluate(argument)
+      );
+    }
+
+    // Save the current variables.
+    const previousVariables =
+      this.variables;
+
+    // Create a fresh local scope.
+    this.variables =
+      new Map<string, Value>();
+
+    // Put arguments into the local scope.
+    for (
+      let i = 0;
+      i < functionStatement.parameters.length;
+      i++
+    ) {
+      const parameter =
+        functionStatement.parameters[i];
+
+      const value =
+        argumentValues[i];
+
+      this.variables.set(
+        parameter,
+        value
+      );
+    }
+
+    try {
+      for (
+        const statement of functionStatement.body
+      ) {
+        await this.execute(statement);
+      }
+
+      // No return statement.
+      return true;
+    } catch (error) {
+      if (error instanceof ReturnSignal) {
+        return (
+          error.value ?? true
+        );
+      }
+
+      throw error;
+    } finally {
+      // Restore the previous scope.
+      this.variables =
+        previousVariables;
     }
   }
 
@@ -227,16 +381,18 @@ export class Interpreter {
     return false;
   }
 
-  private evaluateBinary(
+  private async evaluateBinary(
     expression: BinaryExpression
-  ): Value {
-    const left = this.evaluate(
-      expression.left
-    );
+  ): Promise<Value> {
+    const left =
+      await this.evaluate(
+        expression.left
+      );
 
-    const right = this.evaluate(
-      expression.right
-    );
+    const right =
+      await this.evaluate(
+        expression.right
+      );
 
     switch (expression.operator) {
       case "+":
