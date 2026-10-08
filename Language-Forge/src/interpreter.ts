@@ -15,7 +15,7 @@ import {
   CallExpression,
 } from "./ast";
 
-type Value = string | number | boolean;
+type Value = string | number | boolean | Value[];
 
 class ReturnSignal {
   constructor(public value: Value | undefined) {}

@@ -133,6 +133,14 @@ export class Lexer {
         );
         return;
 
+      case "[":
+        this.addToken(TokenType.LEFT_BRACKET, "[", this.line);
+        return;
+
+      case "]":
+        this.addToken(TokenType.RIGHT_BRACKET, "]", this.line);
+        return;  
+
       case "+":
         this.addToken(
           TokenType.PLUS,

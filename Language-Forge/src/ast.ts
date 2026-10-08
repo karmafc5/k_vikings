@@ -63,8 +63,9 @@ export type Expression =
   | LiteralExpression
   | VariableExpression
   | BinaryExpression
-  | CallExpression;
-
+  | CallExpression
+  | ListExpression;
+   
 export interface LiteralExpression {
   type: "LiteralExpression";
   value: string | number | boolean;
@@ -86,4 +87,9 @@ export interface CallExpression {
   type: "CallExpression";
   name: string;
   arguments: Expression[];
+}
+
+export interface ListExpression {
+  type: "ListExpression";
+  elements: Expression[];
 }
