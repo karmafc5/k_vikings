@@ -22,14 +22,11 @@ export class Parser {
   parse(): Program {
     const statements: Statement[] = [];
 
+    this.skipNewlines();
+
     while (!this.isAtEnd()) {
-      this.skipNewlines();
-
-      if (this.isAtEnd()) {
-        break;
-      }
-
       statements.push(this.statement());
+      this.skipNewlines();
     }
 
     return {
@@ -38,26 +35,24 @@ export class Parser {
   }
 
   private statement(): Statement {
-    this.skipNewlines();
-
-    if (this.matchLexeme("set")) {
-      return this.setStatement();
+    if (this.match(TokenType.SET)) {
+      return this.setStatement(this.previous().line);
     }
 
-    if (this.matchLexeme("say")) {
-      return this.sayStatement();
+    if (this.match(TokenType.SAY)) {
+      return this.sayStatement(this.previous().line);
     }
 
-    if (this.matchLexeme("ask")) {
-      return this.askStatement();
+    if (this.match(TokenType.ASK)) {
+      return this.askStatement(this.previous().line);
     }
 
-    if (this.matchLexeme("if")) {
-      return this.ifStatement();
+    if (this.match(TokenType.IF)) {
+      return this.ifStatement(this.previous().line);
     }
 
-    if (this.matchLexeme("while")) {
-      return this.whileStatement();
+    if (this.match(TokenType.WHILE)) {
+      return this.whileStatement(this.previous().line);
     }
 
     throw this.error(
@@ -66,13 +61,18 @@ export class Parser {
     );
   }
 
-  private setStatement(): SetStatement {
-    const name = this.consumeIdentifier(
+  // --------------------------------------------------
+  // SET
+  // --------------------------------------------------
+
+  private setStatement(line: number): SetStatement {
+    const name = this.consume(
+      TokenType.IDENTIFIER,
       "Expected variable name after 'set'."
     );
 
-    this.consumeLexeme(
-      "=",
+    this.consume(
+      TokenType.EQUAL,
       "Expected '=' after variable name."
     );
 
@@ -82,117 +82,204 @@ export class Parser {
 
     return {
       type: "SetStatement",
-      name,
+      kind: "set",
+      line,
+      name: name.value,
       value,
+      expression: value,
     };
   }
 
-  private sayStatement(): SayStatement {
+  // --------------------------------------------------
+  // SAY
+  // --------------------------------------------------
+
+  private sayStatement(line: number): SayStatement {
     const expression = this.expression();
 
     this.consumeLineEnd();
 
     return {
       type: "SayStatement",
+      kind: "say",
+      line,
       expression,
     };
   }
 
-  private askStatement(): AskStatement {
-    const name = this.consumeIdentifier(
+  // --------------------------------------------------
+  // ASK
+  // --------------------------------------------------
+
+  private askStatement(line: number): AskStatement {
+    const name = this.consume(
+      TokenType.IDENTIFIER,
       "Expected variable name after 'ask'."
     );
 
     let prompt: string | undefined;
 
-    if (!this.isAtLineEnd()) {
-      prompt = this.consumeString(
+    /*
+     * Optional custom prompt:
+     *
+     * ask name "What is your name?"
+     */
+
+    if (!this.check(TokenType.NEWLINE) && !this.isAtEnd()) {
+      const promptToken = this.consume(
+        TokenType.STRING,
         "Expected a string prompt after the variable name."
       );
+
+      prompt = promptToken.value;
     }
 
     this.consumeLineEnd();
 
     return {
       type: "AskStatement",
-      name,
+      kind: "ask",
+      line,
+      name: name.value,
       prompt,
     };
   }
 
-  private ifStatement(): IfStatement {
+  // --------------------------------------------------
+  // IF
+  // --------------------------------------------------
+
+  private ifStatement(line: number): IfStatement {
     const condition = this.expression();
 
     this.consumeLineEnd();
 
-    const thenBranch = this.block();
+    /*
+     * The next token should be INDENT.
+     */
+    this.consume(
+      TokenType.INDENT,
+      "Expected indented block after 'if'."
+    );
+
+    const thenBranch: Statement[] = [];
+
+    this.skipNewlines();
+
+    while (
+      !this.isAtEnd() &&
+      !this.check(TokenType.DEDENT)
+    ) {
+      thenBranch.push(this.statement());
+      this.skipNewlines();
+    }
+
+    this.consume(
+      TokenType.DEDENT,
+      "Expected end of 'if' block."
+    );
 
     let elseBranch: Statement[] | undefined;
 
-    if (this.checkLexeme("else")) {
-      this.advance();
+    /*
+     * Check for else.
+     */
+    if (this.match(TokenType.ELSE)) {
       this.consumeLineEnd();
 
-      elseBranch = this.block();
+      this.consume(
+        TokenType.INDENT,
+        "Expected indented block after 'else'."
+      );
+
+      elseBranch = [];
+
+      this.skipNewlines();
+
+      while (
+        !this.isAtEnd() &&
+        !this.check(TokenType.DEDENT)
+      ) {
+        elseBranch.push(this.statement());
+        this.skipNewlines();
+      }
+
+      this.consume(
+        TokenType.DEDENT,
+        "Expected end of 'else' block."
+      );
     }
 
     return {
       type: "IfStatement",
+      kind: "if",
+      line,
       condition,
       thenBranch,
       elseBranch,
     };
   }
 
-  private whileStatement(): WhileStatement {
+  // --------------------------------------------------
+  // WHILE
+  // --------------------------------------------------
+
+  private whileStatement(line: number): WhileStatement {
     const condition = this.expression();
 
     this.consumeLineEnd();
 
-    const body = this.block();
+    this.consume(
+      TokenType.INDENT,
+      "Expected indented block after 'while'."
+    );
+
+    const body: Statement[] = [];
+
+    this.skipNewlines();
+
+    while (
+      !this.isAtEnd() &&
+      !this.check(TokenType.DEDENT)
+    ) {
+      body.push(this.statement());
+      this.skipNewlines();
+    }
+
+    this.consume(
+      TokenType.DEDENT,
+      "Expected end of 'while' block."
+    );
 
     return {
       type: "WhileStatement",
+      kind: "while",
+      line,
       condition,
       body,
     };
   }
 
-  private block(): Statement[] {
-    const statements: Statement[] = [];
-
-    this.skipNewlines();
-
-    while (!this.isAtEnd()) {
-      if (this.checkLexeme("else")) {
-        break;
-      }
-
-      if (this.isIndented()) {
-        statements.push(this.statement());
-      } else {
-        break;
-      }
-
-      this.skipNewlines();
-    }
-
-    return statements;
-  }
+  // --------------------------------------------------
+  // EXPRESSIONS
+  // --------------------------------------------------
 
   private expression(): Expression {
     return this.or();
   }
 
+  // OR
   private or(): Expression {
     let expression = this.and();
 
-    while (this.matchLexeme("or")) {
-      const operator = this.previous().lexeme;
+    while (this.match(TokenType.OR)) {
+      const operator = this.previous().value;
       const right = this.and();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -202,15 +289,18 @@ export class Parser {
     return expression;
   }
 
+  // AND
   private and(): Expression {
     let expression = this.equality();
 
-    while (this.matchLexeme("and")) {
-      const operator = this.previous().lexeme;
+    while (this.match(TokenType.AND)) {
+      const operator = this.previous().value;
       const right = this.equality();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -220,18 +310,21 @@ export class Parser {
     return expression;
   }
 
+  // == !=
   private equality(): Expression {
     let expression = this.comparison();
 
     while (
-      this.matchLexeme("==") ||
-      this.matchLexeme("!=")
+      this.match(TokenType.EQUAL_EQUAL) ||
+      this.match(TokenType.NOT_EQUAL)
     ) {
-      const operator = this.previous().lexeme;
+      const operator = this.previous().value;
       const right = this.comparison();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -241,20 +334,23 @@ export class Parser {
     return expression;
   }
 
+  // < <= > >=
   private comparison(): Expression {
     let expression = this.term();
 
     while (
-      this.matchLexeme("<") ||
-      this.matchLexeme("<=") ||
-      this.matchLexeme(">") ||
-      this.matchLexeme(">=")
+      this.match(TokenType.LESS) ||
+      this.match(TokenType.LESS_EQUAL) ||
+      this.match(TokenType.GREATER) ||
+      this.match(TokenType.GREATER_EQUAL)
     ) {
-      const operator = this.previous().lexeme;
+      const operator = this.previous().value;
       const right = this.term();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -264,18 +360,21 @@ export class Parser {
     return expression;
   }
 
+  // + -
   private term(): Expression {
     let expression = this.factor();
 
     while (
-      this.matchLexeme("+") ||
-      this.matchLexeme("-")
+      this.match(TokenType.PLUS) ||
+      this.match(TokenType.MINUS)
     ) {
-      const operator = this.previous().lexeme;
+      const operator = this.previous().value;
       const right = this.factor();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -285,18 +384,21 @@ export class Parser {
     return expression;
   }
 
+  // * /
   private factor(): Expression {
     let expression = this.unary();
 
     while (
-      this.matchLexeme("*") ||
-      this.matchLexeme("/")
+      this.match(TokenType.STAR) ||
+      this.match(TokenType.SLASH)
     ) {
-      const operator = this.previous().lexeme;
+      const operator = this.previous().value;
       const right = this.unary();
 
       expression = {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -306,14 +408,27 @@ export class Parser {
     return expression;
   }
 
+  // NOT
   private unary(): Expression {
-    if (this.matchLexeme("not")) {
+    if (this.match(TokenType.NOT)) {
       const right = this.unary();
+
+      /*
+       * Vico currently represents "not" as
+       * a BinaryExpression.
+       *
+       * We keep this because the interpreter
+       * already supports it.
+       */
 
       return {
         type: "BinaryExpression",
+        kind: "binary",
+        line: this.previous().line,
         left: {
           type: "LiteralExpression",
+          kind: "literal",
+          line: this.previous().line,
           value: true,
         },
         operator: "not",
@@ -324,47 +439,74 @@ export class Parser {
     return this.primary();
   }
 
+  // --------------------------------------------------
+  // PRIMARY
+  // --------------------------------------------------
+
   private primary(): Expression {
     if (this.match(TokenType.NUMBER)) {
+      const token = this.previous();
       return {
         type: "LiteralExpression",
-        value: Number(this.previous().lexeme),
+        kind: "literal",
+        line: token.line,
+        value: Number(token.value),
       };
     }
 
     if (this.match(TokenType.STRING)) {
+      const token = this.previous();
       return {
         type: "LiteralExpression",
-        value: this.previous().lexeme,
+        kind: "literal",
+        line: token.line,
+        value: token.value,
       };
     }
 
-    if (this.matchLexeme("true")) {
+    if (this.match(TokenType.TRUE)) {
+      const token = this.previous();
       return {
         type: "LiteralExpression",
+        kind: "literal",
+        line: token.line,
         value: true,
       };
     }
 
-    if (this.matchLexeme("false")) {
+    if (this.match(TokenType.FALSE)) {
+      const token = this.previous();
       return {
         type: "LiteralExpression",
+        kind: "literal",
+        line: token.line,
         value: false,
       };
     }
 
     if (this.match(TokenType.IDENTIFIER)) {
+      const token = this.previous();
       return {
         type: "VariableExpression",
-        name: this.previous().lexeme,
+        kind: "variable",
+        line: token.line,
+        name: token.value,
       };
     }
 
-    if (this.matchLexeme("(")) {
+    /*
+     * Parentheses.
+     *
+     * Example:
+     *
+     * (10 + 5) * 2
+     */
+
+    if (this.match(TokenType.LEFT_PAREN)) {
       const expression = this.expression();
 
-      this.consumeLexeme(
-        ")",
+      this.consume(
+        TokenType.RIGHT_PAREN,
         "Expected ')' after expression."
       );
 
@@ -377,6 +519,10 @@ export class Parser {
     );
   }
 
+  // --------------------------------------------------
+  // TOKEN HELPERS
+  // --------------------------------------------------
+
   private match(type: TokenType): boolean {
     if (this.check(type)) {
       this.advance();
@@ -386,29 +532,45 @@ export class Parser {
     return false;
   }
 
-  private matchLexeme(lexeme: string): boolean {
-    if (this.checkLexeme(lexeme)) {
-      this.advance();
-      return true;
-    }
-
-    return false;
-  }
-
   private check(type: TokenType): boolean {
     if (this.isAtEnd()) {
-      return false;
+      return type === TokenType.EOF;
     }
 
     return this.peek().type === type;
   }
 
-  private checkLexeme(lexeme: string): boolean {
-    if (this.isAtEnd()) {
-      return false;
+  private consume(
+    type: TokenType,
+    message: string
+  ): Token {
+    if (this.check(type)) {
+      return this.advance();
     }
 
-    return this.peek().lexeme === lexeme;
+    throw this.error(this.peek(), message);
+  }
+
+  private consumeLineEnd(): void {
+    if (this.check(TokenType.NEWLINE)) {
+      this.advance();
+      return;
+    }
+
+    if (this.isAtEnd()) {
+      return;
+    }
+
+    throw this.error(
+      this.peek(),
+      "Expected end of line."
+    );
+  }
+
+  private skipNewlines(): void {
+    while (this.check(TokenType.NEWLINE)) {
+      this.advance();
+    }
   }
 
   private advance(): Token {
@@ -429,66 +591,6 @@ export class Parser {
 
   private isAtEnd(): boolean {
     return this.peek().type === TokenType.EOF;
-  }
-
-  private skipNewlines(): void {
-    while (
-      !this.isAtEnd() &&
-      this.peek().type === TokenType.NEWLINE
-    ) {
-      this.advance();
-    }
-  }
-
-  private isAtLineEnd(): boolean {
-    return (
-      this.isAtEnd() ||
-      this.peek().type === TokenType.NEWLINE
-    );
-  }
-
-  private consumeLineEnd(): void {
-    if (!this.isAtEnd()) {
-      if (this.peek().type === TokenType.NEWLINE) {
-        this.advance();
-      } else {
-        throw this.error(
-          this.peek(),
-          "Expected end of line."
-        );
-      }
-    }
-  }
-
-  private consumeIdentifier(message: string): string {
-    if (this.match(TokenType.IDENTIFIER)) {
-      return this.previous().lexeme;
-    }
-
-    throw this.error(this.peek(), message);
-  }
-
-  private consumeString(message: string): string {
-    if (this.match(TokenType.STRING)) {
-      return this.previous().lexeme;
-    }
-
-    throw this.error(this.peek(), message);
-  }
-
-  private consumeLexeme(
-    lexeme: string,
-    message: string
-  ): Token {
-    if (this.matchLexeme(lexeme)) {
-      return this.previous();
-    }
-
-    throw this.error(this.peek(), message);
-  }
-
-  private isIndented(): boolean {
-    return this.peek().indent > 0;
   }
 
   private error(

@@ -158,6 +158,11 @@ export class Lexer {
         return;
 
       case "/":
+        if (this.match("/")) {
+          this.skipComment();
+          return;
+        }
+
         this.addToken(
           TokenType.SLASH,
           "/",
