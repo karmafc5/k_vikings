@@ -45,7 +45,7 @@ export type Expression =
 
 export interface LiteralExpression {
   type: "LiteralExpression";
-  value: string | number;
+  value: string | number | boolean;
 }
 
 export interface VariableExpression {

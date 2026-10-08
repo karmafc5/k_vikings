@@ -17,22 +17,19 @@ export class Parser {
 
   constructor(tokens: Token[]) {
     this.tokens = tokens;
+    this.current = 0;
   }
-
-  // -------------------------
-  // PROGRAM
-  // -------------------------
 
   parse(): Program {
     const statements: Statement[] = [];
 
     while (!this.isAtEnd()) {
-      // Ignore blank lines at the top level
+      // Ignore blank lines.
       if (this.match(TokenType.NEWLINE)) {
         continue;
       }
 
-      // INDENT should only appear inside a block
+      // Indentation at the top level is invalid.
       if (this.check(TokenType.INDENT)) {
         throw this.error(
           this.peek(),
@@ -43,12 +40,14 @@ export class Parser {
       statements.push(this.statement());
     }
 
-    return { statements };
+    return {
+      statements,
+    };
   }
 
-  // -------------------------
+  // ============================================================
   // STATEMENTS
-  // -------------------------
+  // ============================================================
 
   private statement(): Statement {
     if (this.match(TokenType.SET)) {
@@ -77,9 +76,9 @@ export class Parser {
     );
   }
 
-  // -------------------------
+  // ============================================================
   // SET
-  // -------------------------
+  // ============================================================
 
   private setStatement(): SetStatement {
     const name = this.consume(
@@ -106,9 +105,9 @@ export class Parser {
     };
   }
 
-  // -------------------------
+  // ============================================================
   // SAY
-  // -------------------------
+  // ============================================================
 
   private sayStatement(): SayStatement {
     const expression = this.expression();
@@ -123,9 +122,9 @@ export class Parser {
     };
   }
 
-  // -------------------------
+  // ============================================================
   // ASK
-  // -------------------------
+  // ============================================================
 
   private askStatement(): AskStatement {
     const name = this.consume(
@@ -143,9 +142,9 @@ export class Parser {
     };
   }
 
-  // -------------------------
-  // IF
-  // -------------------------
+  // ============================================================
+  // IF / ELSE
+  // ============================================================
 
   private ifStatement(): IfStatement {
     const condition = this.expression();
@@ -155,7 +154,6 @@ export class Parser {
       "Expected new line after if condition."
     );
 
-    // Ignore blank lines before the block
     this.skipNewlines();
 
     this.consume(
@@ -183,7 +181,6 @@ export class Parser {
 
     let elseBranch: Statement[] | undefined;
 
-    // Allow blank lines between if and else
     this.skipNewlines();
 
     if (this.match(TokenType.ELSE)) {
@@ -226,9 +223,9 @@ export class Parser {
     };
   }
 
-  // -------------------------
+  // ============================================================
   // WHILE
-  // -------------------------
+  // ============================================================
 
   private whileStatement(): WhileStatement {
     const condition = this.expression();
@@ -238,7 +235,6 @@ export class Parser {
       "Expected new line after while condition."
     );
 
-    // Ignore blank lines before the block
     this.skipNewlines();
 
     this.consume(
@@ -271,19 +267,81 @@ export class Parser {
     };
   }
 
-  // -------------------------
+  // ============================================================
   // EXPRESSIONS
-  // -------------------------
+  // ============================================================
+
+  /*
+   * Expression precedence:
+   *
+   * or
+   *   ↓
+   * and
+   *   ↓
+   * equality
+   *   ↓
+   * comparison
+   *   ↓
+   * term
+   *   ↓
+   * factor
+   *   ↓
+   * primary
+   */
 
   private expression(): Expression {
-    return this.equality();
+    return this.or();
   }
 
-  // -------------------------
+  // ============================================================
+  // OR
+  // ============================================================
+
+  private or(): Expression {
+    let expression = this.and();
+
+    while (this.match(TokenType.OR)) {
+      const operator = this.previous();
+
+      const right = this.and();
+
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
+
+    return expression;
+  }
+
+  // ============================================================
+  // AND
+  // ============================================================
+
+  private and(): Expression {
+    let expression = this.equality();
+
+    while (this.match(TokenType.AND)) {
+      const operator = this.previous();
+
+      const right = this.equality();
+
+      expression = {
+        type: "BinaryExpression",
+        left: expression,
+        operator: operator.value,
+        right,
+      };
+    }
+
+    return expression;
+  }
+
+  // ============================================================
   // EQUALITY
-  // ==
-  // !=
-  // -------------------------
+  // ============================================================
 
   private equality(): Expression {
     let expression = this.comparison();
@@ -295,6 +353,7 @@ export class Parser {
       )
     ) {
       const operator = this.previous();
+
       const right = this.comparison();
 
       expression = {
@@ -308,13 +367,9 @@ export class Parser {
     return expression;
   }
 
-  // -------------------------
+  // ============================================================
   // COMPARISON
-  // <
-  // <=
-  // >
-  // >=
-  // -------------------------
+  // ============================================================
 
   private comparison(): Expression {
     let expression = this.term();
@@ -328,6 +383,7 @@ export class Parser {
       )
     ) {
       const operator = this.previous();
+
       const right = this.term();
 
       expression = {
@@ -341,11 +397,9 @@ export class Parser {
     return expression;
   }
 
-  // -------------------------
-  // TERM
-  // +
-  // -
-  // -------------------------
+  // ============================================================
+  // ADDITION / SUBTRACTION
+  // ============================================================
 
   private term(): Expression {
     let expression = this.factor();
@@ -357,6 +411,7 @@ export class Parser {
       )
     ) {
       const operator = this.previous();
+
       const right = this.factor();
 
       expression = {
@@ -370,11 +425,9 @@ export class Parser {
     return expression;
   }
 
-  // -------------------------
-  // FACTOR
-  // *
-  // /
-  // -------------------------
+  // ============================================================
+  // MULTIPLICATION / DIVISION
+  // ============================================================
 
   private factor(): Expression {
     let expression = this.primary();
@@ -386,6 +439,7 @@ export class Parser {
       )
     ) {
       const operator = this.previous();
+
       const right = this.primary();
 
       expression = {
@@ -399,11 +453,12 @@ export class Parser {
     return expression;
   }
 
-  // -------------------------
+  // ============================================================
   // PRIMARY
-  // -------------------------
+  // ============================================================
 
   private primary(): Expression {
+    // Number
     if (this.match(TokenType.NUMBER)) {
       return {
         type: "LiteralExpression",
@@ -411,6 +466,7 @@ export class Parser {
       };
     }
 
+    // String
     if (this.match(TokenType.STRING)) {
       return {
         type: "LiteralExpression",
@@ -418,6 +474,23 @@ export class Parser {
       };
     }
 
+    // true
+    if (this.match(TokenType.TRUE)) {
+      return {
+        type: "LiteralExpression",
+        value: true,
+      };
+    }
+
+    // false
+    if (this.match(TokenType.FALSE)) {
+      return {
+        type: "LiteralExpression",
+        value: false,
+      };
+    }
+
+    // Variable
     if (this.match(TokenType.IDENTIFIER)) {
       return {
         type: "VariableExpression",
@@ -431,19 +504,19 @@ export class Parser {
     );
   }
 
-  // -------------------------
-  // NEWLINE HELPER
-  // -------------------------
+  // ============================================================
+  // NEWLINES
+  // ============================================================
 
   private skipNewlines(): void {
     while (this.match(TokenType.NEWLINE)) {
-      // Keep consuming blank lines
+      // Keep consuming blank lines.
     }
   }
 
-  // -------------------------
+  // ============================================================
   // TOKEN HELPERS
-  // -------------------------
+  // ============================================================
 
   private match(...types: TokenType[]): boolean {
     for (const type of types) {
@@ -497,6 +570,10 @@ export class Parser {
   private previous(): Token {
     return this.tokens[this.current - 1];
   }
+
+  // ============================================================
+  // ERROR HANDLING
+  // ============================================================
 
   private error(
     token: Token,

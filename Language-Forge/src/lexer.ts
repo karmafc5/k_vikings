@@ -70,22 +70,15 @@ export class Lexer {
     return this.tokens;
   }
 
-  // ==================================================
-  // MAIN SCANNER
-  // ==================================================
-
   private scanToken(): void {
     const c = this.advance();
 
-    // Ignore spaces and tabs inside statements.
+    // Ignore spaces and tabs inside a line.
     if (c === " " || c === "\t") {
       return;
     }
 
-    // ------------------------------------------------
-    // NEWLINE
-    // ------------------------------------------------
-
+    // New line.
     if (c === "\n") {
       this.addToken(
         TokenType.NEWLINE,
@@ -99,7 +92,7 @@ export class Lexer {
       return;
     }
 
-    // Windows CRLF
+    // Windows-style new line.
     if (c === "\r") {
       if (this.peek() === "\n") {
         this.advance();
@@ -117,18 +110,11 @@ export class Lexer {
       return;
     }
 
-    // ------------------------------------------------
-    // COMMENTS
-    // ------------------------------------------------
-
+    // Comment.
     if (c === "#") {
       this.skipComment();
       return;
     }
-
-    // ------------------------------------------------
-    // SINGLE CHARACTER TOKENS
-    // ------------------------------------------------
 
     switch (c) {
       case "(":
@@ -179,10 +165,6 @@ export class Lexer {
         );
         return;
 
-      // ------------------------------------------------
-      // EQUAL / EQUAL_EQUAL
-      // ------------------------------------------------
-
       case "=":
         if (this.match("=")) {
           this.addToken(
@@ -199,10 +181,6 @@ export class Lexer {
         }
         return;
 
-      // ------------------------------------------------
-      // NOT_EQUAL
-      // ------------------------------------------------
-
       case "!":
         if (this.match("=")) {
           this.addToken(
@@ -211,15 +189,9 @@ export class Lexer {
             this.line
           );
         } else {
-          this.error(
-            "Unexpected character: !"
-          );
+          this.error("Unexpected character: !");
         }
         return;
-
-      // ------------------------------------------------
-      // LESS / LESS_EQUAL
-      // ------------------------------------------------
 
       case "<":
         if (this.match("=")) {
@@ -237,10 +209,6 @@ export class Lexer {
         }
         return;
 
-      // ------------------------------------------------
-      // GREATER / GREATER_EQUAL
-      // ------------------------------------------------
-
       case ">":
         if (this.match("=")) {
           this.addToken(
@@ -257,10 +225,6 @@ export class Lexer {
         }
         return;
 
-      // ------------------------------------------------
-      // STRING
-      // ------------------------------------------------
-
       case '"':
         this.string();
         return;
@@ -269,32 +233,20 @@ export class Lexer {
         break;
     }
 
-    // ------------------------------------------------
-    // NUMBER
-    // ------------------------------------------------
-
+    // Number.
     if (this.isDigit(c)) {
       this.number();
       return;
     }
 
-    // ------------------------------------------------
-    // IDENTIFIER / KEYWORD
-    // ------------------------------------------------
-
+    // Identifier or keyword.
     if (this.isAlpha(c)) {
       this.identifier();
       return;
     }
 
-    this.error(
-      `Unexpected character: ${c}`
-    );
+    this.error(`Unexpected character: ${c}`);
   }
-
-  // ==================================================
-  // INDENTATION
-  // ==================================================
 
   private handleIndentation(): void {
     let indentation = 0;
@@ -313,7 +265,7 @@ export class Lexer {
       }
 
       if (c === "\t") {
-        // One tab = four spaces.
+        // Treat one tab as four spaces.
         indentation += 4;
         this.advance();
         continue;
@@ -323,16 +275,11 @@ export class Lexer {
     }
 
     /*
-     * -----------------------------------------------
-     * BLANK LINE
-     * -----------------------------------------------
+     * Blank line.
      *
-     * This is the important fix.
-     *
-     * If we find a blank line, consume the newline
-     * here so the lexer doesn't get stuck forever.
+     * Consume the newline so the lexer doesn't
+     * get stuck on blank lines.
      */
-
     if (this.peek() === "\n") {
       this.advance();
 
@@ -343,7 +290,6 @@ export class Lexer {
       );
 
       this.line++;
-
       this.atLineStart = true;
 
       return;
@@ -366,7 +312,6 @@ export class Lexer {
       );
 
       this.line++;
-
       this.atLineStart = true;
 
       return;
@@ -377,10 +322,6 @@ export class Lexer {
      */
     if (this.peek() === "#") {
       this.skipComment();
-
-      /*
-       * The next scan will process the newline.
-       */
       return;
     }
 
@@ -389,10 +330,9 @@ export class Lexer {
         this.indentStack.length - 1
       ];
 
-    // ------------------------------------------------
-    // INCREASE INDENTATION
-    // ------------------------------------------------
-
+    /*
+     * Increased indentation.
+     */
     if (indentation > currentIndent) {
       this.indentStack.push(indentation);
 
@@ -407,10 +347,9 @@ export class Lexer {
       return;
     }
 
-    // ------------------------------------------------
-    // DECREASE INDENTATION
-    // ------------------------------------------------
-
+    /*
+     * Decreased indentation.
+     */
     if (indentation < currentIndent) {
       while (
         this.indentStack.length > 1 &&
@@ -433,26 +372,16 @@ export class Lexer {
           this.indentStack.length - 1
         ];
 
-      if (
-        indentation !== newCurrentIndent
-      ) {
-        this.error(
-          "Invalid indentation."
-        );
+      if (indentation !== newCurrentIndent) {
+        this.error("Invalid indentation.");
       }
     }
 
     this.atLineStart = false;
   }
 
-  // ==================================================
-  // IDENTIFIERS
-  // ==================================================
-
   private identifier(): void {
-    while (
-      this.isAlphaNumeric(this.peek())
-    ) {
+    while (this.isAlphaNumeric(this.peek())) {
       this.advance();
     }
 
@@ -488,6 +417,27 @@ export class Lexer {
         type = TokenType.WHILE;
         break;
 
+      // Boolean keywords.
+      case "true":
+        type = TokenType.TRUE;
+        break;
+
+      case "false":
+        type = TokenType.FALSE;
+        break;
+      
+        case "and":
+        type = TokenType.AND;
+        break;
+
+      case "or":
+        type = TokenType.OR;
+        break;
+
+      case "not":
+        type = TokenType.NOT;
+        break;
+
       case "function":
         type = TokenType.FUNCTION;
         break;
@@ -508,27 +458,21 @@ export class Lexer {
     );
   }
 
-  // ==================================================
-  // NUMBERS
-  // ==================================================
-
   private number(): void {
-    while (
-      this.isDigit(this.peek())
-    ) {
+    while (this.isDigit(this.peek())) {
       this.advance();
     }
 
-    // Decimal numbers.
+    /*
+     * Decimal number.
+     */
     if (
       this.peek() === "." &&
       this.isDigit(this.peekNext())
     ) {
       this.advance();
 
-      while (
-        this.isDigit(this.peek())
-      ) {
+      while (this.isDigit(this.peek())) {
         this.advance();
       }
     }
@@ -545,10 +489,6 @@ export class Lexer {
     );
   }
 
-  // ==================================================
-  // STRINGS
-  // ==================================================
-
   private string(): void {
     let value = "";
 
@@ -556,7 +496,9 @@ export class Lexer {
       !this.isAtEnd() &&
       this.peek() !== '"'
     ) {
-      // Escape sequence.
+      /*
+       * Escape sequences.
+       */
       if (this.peek() === "\\") {
         this.advance();
 
@@ -591,6 +533,10 @@ export class Lexer {
         continue;
       }
 
+      /*
+       * Allow newlines inside strings,
+       * while keeping line numbers correct.
+       */
       if (this.peek() === "\n") {
         this.line++;
       }
@@ -598,14 +544,15 @@ export class Lexer {
       value += this.advance();
     }
 
+    /*
+     * String wasn't closed.
+     */
     if (this.isAtEnd()) {
-      this.error(
-        "Unterminated string."
-      );
+      this.error("Unterminated string.");
       return;
     }
 
-    // Closing quote.
+    // Consume closing quote.
     this.advance();
 
     this.addToken(
@@ -614,10 +561,6 @@ export class Lexer {
       this.line
     );
   }
-
-  // ==================================================
-  // COMMENTS
-  // ==================================================
 
   private skipComment(): void {
     while (
@@ -629,20 +572,12 @@ export class Lexer {
     }
   }
 
-  // ==================================================
-  // HELPERS
-  // ==================================================
-
-  private match(
-    expected: string
-  ): boolean {
+  private match(expected: string): boolean {
     if (this.isAtEnd()) {
       return false;
     }
 
-    if (
-      this.source[this.current] !== expected
-    ) {
+    if (this.source[this.current] !== expected) {
       return false;
     }
 
@@ -660,45 +595,28 @@ export class Lexer {
   }
 
   private peekNext(): string {
-    if (
-      this.current + 1 >=
-      this.source.length
-    ) {
+    if (this.current + 1 >= this.source.length) {
       return "\0";
     }
 
-    return this.source[
-      this.current + 1
-    ];
+    return this.source[this.current + 1];
   }
 
   private advance(): string {
     this.current++;
 
-    return this.source[
-      this.current - 1
-    ];
+    return this.source[this.current - 1];
   }
 
   private isAtEnd(): boolean {
-    return (
-      this.current >=
-      this.source.length
-    );
+    return this.current >= this.source.length;
   }
 
-  private isDigit(
-    c: string
-  ): boolean {
-    return (
-      c >= "0" &&
-      c <= "9"
-    );
+  private isDigit(c: string): boolean {
+    return c >= "0" && c <= "9";
   }
 
-  private isAlpha(
-    c: string
-  ): boolean {
+  private isAlpha(c: string): boolean {
     return (
       (c >= "a" && c <= "z") ||
       (c >= "A" && c <= "Z") ||
@@ -706,9 +624,7 @@ export class Lexer {
     );
   }
 
-  private isAlphaNumeric(
-    c: string
-  ): boolean {
+  private isAlphaNumeric(c: string): boolean {
     return (
       this.isAlpha(c) ||
       this.isDigit(c)
@@ -727,9 +643,7 @@ export class Lexer {
     });
   }
 
-  private error(
-    message: string
-  ): void {
+  private error(message: string): void {
     throw new Error(
       `[line ${this.line}] Error: ${message}`
     );

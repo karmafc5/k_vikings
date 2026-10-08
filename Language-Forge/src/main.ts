@@ -2,13 +2,15 @@ import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { Interpreter } from "./interpreter";
 
-const source = `set count = 1
+const source = `set loggedIn = false
 
-while count <= 5
-    say count
-    set count = count + 1
+set age = 13
+set loggedIn = true
 
-say "Finished"
+if age >= 18 and loggedIn
+    say "Welcome"
+else
+    say "Access Denied"
 `;
 
 const lexer = new Lexer(source);
