@@ -23,6 +23,7 @@ export interface SayStatement {
 export interface AskStatement {
   type: "AskStatement";
   name: string;
+  prompt?: string;
 }
 
 export interface IfStatement {

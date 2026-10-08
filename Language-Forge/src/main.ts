@@ -2,22 +2,29 @@ import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { Interpreter } from "./interpreter";
 
-const source = `set loggedIn = false
+async function main(): Promise<void> {
+  const source = `
+ask name "What is your name?"
+say "Hello " + name
 
-set age = 13
-set loggedIn = true
-
-if age >= 18 and loggedIn
-    say "Welcome"
+ask age "How old are you?"
+if age >= 18
+    say "You are an adult"
 else
-    say "Access Denied"
+    say "You are a minor"
 `;
 
-const lexer = new Lexer(source);
-const tokens = lexer.scanTokens();
+  const lexer = new Lexer(source);
+  const tokens = lexer.scanTokens();
 
-const parser = new Parser(tokens);
-const program = parser.parse();
+  const parser = new Parser(tokens);
+  const program = parser.parse();
 
-const interpreter = new Interpreter();
-interpreter.interpret(program);
+  const interpreter = new Interpreter();
+
+  await interpreter.interpret(program);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+});

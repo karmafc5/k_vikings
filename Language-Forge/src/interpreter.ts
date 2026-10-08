@@ -1,3 +1,5 @@
+import * as readline from "readline";
+
 import {
   Program,
   Statement,
@@ -15,118 +17,122 @@ type Value = string | number | boolean;
 export class Interpreter {
   private variables = new Map<string, Value>();
 
-  // ============================================================
-  // PROGRAM
-  // ============================================================
-
-  interpret(program: Program): void {
+  async interpret(program: Program): Promise<void> {
     for (const statement of program.statements) {
-      this.execute(statement);
+      await this.execute(statement);
     }
   }
 
-  // ============================================================
-  // STATEMENTS
-  // ============================================================
-
-  private execute(statement: Statement): void {
+  private async execute(statement: Statement): Promise<void> {
     switch (statement.type) {
       case "SetStatement":
-        this.executeSet(statement);
+        await this.executeSet(statement);
         break;
 
       case "SayStatement":
-        this.executeSay(statement);
+        await this.executeSay(statement);
         break;
 
       case "AskStatement":
-        this.executeAsk(statement);
+        await this.executeAsk(statement);
         break;
 
       case "IfStatement":
-        this.executeIf(statement);
+        await this.executeIf(statement);
         break;
 
       case "WhileStatement":
-        this.executeWhile(statement);
+        await this.executeWhile(statement);
         break;
     }
   }
 
-  // ============================================================
-  // SET
-  // ============================================================
-
-  private executeSet(statement: SetStatement): void {
+  private async executeSet(
+    statement: SetStatement
+  ): Promise<void> {
     const value = this.evaluate(statement.value);
-
-    this.variables.set(
-      statement.name,
-      value
-    );
+    this.variables.set(statement.name, value);
   }
 
-  // ============================================================
-  // SAY
-  // ============================================================
-
-  private executeSay(statement: SayStatement): void {
-    const value = this.evaluate(
-      statement.expression
-    );
-
+  private async executeSay(
+    statement: SayStatement
+  ): Promise<void> {
+    const value = this.evaluate(statement.expression);
     console.log(value);
   }
 
-  // ============================================================
-  // ASK
-  // ============================================================
+  private async executeAsk(
+    statement: AskStatement
+  ): Promise<void> {
+    const question =
+      statement.prompt ??
+      `What is ${statement.name}? `;
 
-  private executeAsk(statement: AskStatement): void {
-    console.log(
-      `ASK: ${statement.name}`
-    );
+    const answer = await this.getInput(question);
+    const value = this.convertInput(answer);
+
+    this.variables.set(statement.name, value);
   }
 
-  // ============================================================
-  // IF / ELSE
-  // ============================================================
+  private getInput(question: string): Promise<string> {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-  private executeIf(statement: IfStatement): void {
-    const condition = this.evaluate(
-      statement.condition
-    );
+    return new Promise((resolve) => {
+      rl.question(question, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    });
+  }
+
+  private convertInput(input: string): Value {
+    const value = input.trim();
+
+    if (value.toLowerCase() === "true") {
+      return true;
+    }
+
+    if (value.toLowerCase() === "false") {
+      return false;
+    }
+
+    if (value !== "" && !Number.isNaN(Number(value))) {
+      return Number(value);
+    }
+
+    return value;
+  }
+
+  private async executeIf(
+    statement: IfStatement
+  ): Promise<void> {
+    const condition = this.evaluate(statement.condition);
 
     if (this.isTruthy(condition)) {
       for (const childStatement of statement.thenBranch) {
-        this.execute(childStatement);
+        await this.execute(childStatement);
       }
     } else if (statement.elseBranch) {
       for (const childStatement of statement.elseBranch) {
-        this.execute(childStatement);
+        await this.execute(childStatement);
       }
     }
   }
 
-  // ============================================================
-  // WHILE
-  // ============================================================
-
-  private executeWhile(statement: WhileStatement): void {
+  private async executeWhile(
+    statement: WhileStatement
+  ): Promise<void> {
     while (
-      this.isTruthy(
-        this.evaluate(statement.condition)
-      )
+      this.isTruthy(this.evaluate(statement.condition))
     ) {
       for (const childStatement of statement.body) {
-        this.execute(childStatement);
+        await this.execute(childStatement);
       }
     }
   }
-
-  // ============================================================
-  // EXPRESSIONS
-  // ============================================================
 
   private evaluate(expression: Expression): Value {
     switch (expression.type) {
@@ -134,18 +140,12 @@ export class Interpreter {
         return expression.value;
 
       case "VariableExpression":
-        return this.getVariable(
-          expression.name
-        );
+        return this.getVariable(expression.name);
 
       case "BinaryExpression":
         return this.evaluateBinary(expression);
     }
   }
-
-  // ============================================================
-  // VARIABLES
-  // ============================================================
 
   private getVariable(name: string): Value {
     if (!this.variables.has(name)) {
@@ -156,10 +156,6 @@ export class Interpreter {
 
     return this.variables.get(name)!;
   }
-
-  // ============================================================
-  // TRUTHINESS
-  // ============================================================
 
   private isTruthy(value: Value): boolean {
     if (typeof value === "boolean") {
@@ -177,36 +173,19 @@ export class Interpreter {
     return false;
   }
 
-  // ============================================================
-  // BINARY EXPRESSIONS
-  // ============================================================
-
   private evaluateBinary(
     expression: BinaryExpression
   ): Value {
-    const left = this.evaluate(
-      expression.left
-    );
-
-    const right = this.evaluate(
-      expression.right
-    );
+    const left = this.evaluate(expression.left);
+    const right = this.evaluate(expression.right);
 
     switch (expression.operator) {
-
-      // --------------------------------------------------------
-      // ADDITION
-      // --------------------------------------------------------
-
       case "+":
         if (
           typeof left === "string" ||
           typeof right === "string"
         ) {
-          return (
-            String(left) +
-            String(right)
-          );
+          return String(left) + String(right);
         }
 
         if (
@@ -220,97 +199,32 @@ export class Interpreter {
           "Cannot add boolean values."
         );
 
-      // --------------------------------------------------------
-      // SUBTRACTION
-      // --------------------------------------------------------
-
       case "-":
-        return (
-          this.toNumber(left) -
-          this.toNumber(right)
-        );
-
-      // --------------------------------------------------------
-      // MULTIPLICATION
-      // --------------------------------------------------------
+        return this.toNumber(left) - this.toNumber(right);
 
       case "*":
-        return (
-          this.toNumber(left) *
-          this.toNumber(right)
-        );
-
-      // --------------------------------------------------------
-      // DIVISION
-      // --------------------------------------------------------
+        return this.toNumber(left) * this.toNumber(right);
 
       case "/":
-        return (
-          this.toNumber(left) /
-          this.toNumber(right)
-        );
-
-      // --------------------------------------------------------
-      // EQUALITY
-      // --------------------------------------------------------
+        return this.toNumber(left) / this.toNumber(right);
 
       case "==":
         return left === right;
 
-      // --------------------------------------------------------
-      // NOT EQUAL
-      // --------------------------------------------------------
-
       case "!=":
         return left !== right;
 
-      // --------------------------------------------------------
-      // LESS THAN
-      // --------------------------------------------------------
-
       case "<":
-        return this.compare(
-          left,
-          right,
-          "<"
-        );
-
-      // --------------------------------------------------------
-      // LESS THAN OR EQUAL
-      // --------------------------------------------------------
+        return this.compare(left, right, "<");
 
       case "<=":
-        return this.compare(
-          left,
-          right,
-          "<="
-        );
-
-      // --------------------------------------------------------
-      // GREATER THAN
-      // --------------------------------------------------------
+        return this.compare(left, right, "<=");
 
       case ">":
-        return this.compare(
-          left,
-          right,
-          ">"
-        );
-
-      // --------------------------------------------------------
-      // GREATER THAN OR EQUAL
-      // --------------------------------------------------------
+        return this.compare(left, right, ">");
 
       case ">=":
-        return this.compare(
-          left,
-          right,
-          ">="
-        );
-
-      // --------------------------------------------------------
-      // AND
-      // --------------------------------------------------------
+        return this.compare(left, right, ">=");
 
       case "and":
         return (
@@ -318,19 +232,14 @@ export class Interpreter {
           this.isTruthy(right)
         );
 
-      // --------------------------------------------------------
-      // OR
-      // --------------------------------------------------------
-
       case "or":
         return (
           this.isTruthy(left) ||
           this.isTruthy(right)
         );
 
-      // --------------------------------------------------------
-      // UNKNOWN OPERATOR
-      // --------------------------------------------------------
+      case "not":
+        return !this.isTruthy(right);
 
       default:
         throw new Error(
@@ -338,10 +247,6 @@ export class Interpreter {
         );
     }
   }
-
-  // ============================================================
-  // NUMBER CONVERSION
-  // ============================================================
 
   private toNumber(value: Value): number {
     if (typeof value === "number") {
@@ -353,16 +258,11 @@ export class Interpreter {
     );
   }
 
-  // ============================================================
-  // COMPARISON
-  // ============================================================
-
   private compare(
     left: Value,
     right: Value,
     operator: string
   ): boolean {
-
     if (
       typeof left !== "number" ||
       typeof right !== "number"
