@@ -2,13 +2,14 @@ import {
   Program,
   Statement,
   Expression,
+  BinaryExpression,
+  FunctionStatement,
 } from "./ast";
 
 export interface Instruction {
   op: string;
   name?: string;
   value?: string | number | boolean;
-  line?: number;
 }
 
 export class Compiler {
@@ -31,7 +32,6 @@ export class Compiler {
         instructions.push({
           op: "ASK",
           name: statement.name,
-          line: statement.line,
         });
         break;
 
@@ -43,7 +43,6 @@ export class Compiler {
 
         instructions.push({
           op: "SAY",
-          line: statement.line,
         });
         break;
 
@@ -56,36 +55,44 @@ export class Compiler {
         instructions.push({
           op: "SET",
           name: statement.name,
-          line: statement.line,
         });
         break;
 
       case "IfStatement":
-        /*
-         * Control-flow bytecode will be added later.
-         *
-         * For now, compile the condition and branches
-         * so the compiler understands the new AST.
-         */
-
         this.compileExpression(
           statement.condition,
           instructions
         );
+
+        instructions.push({
+          op: "IF_START",
+        });
 
         for (const child of statement.thenBranch) {
           this.compileStatement(child, instructions);
         }
 
         if (statement.elseBranch) {
+          instructions.push({
+            op: "ELSE",
+          });
+
           for (const child of statement.elseBranch) {
             this.compileStatement(child, instructions);
           }
         }
 
+        instructions.push({
+          op: "IF_END",
+        });
+
         break;
 
       case "WhileStatement":
+        instructions.push({
+          op: "WHILE_START",
+        });
+
         this.compileExpression(
           statement.condition,
           instructions
@@ -95,8 +102,71 @@ export class Compiler {
           this.compileStatement(child, instructions);
         }
 
+        instructions.push({
+          op: "WHILE_END",
+        });
+
+        break;
+
+      case "FunctionStatement":
+        this.compileFunction(
+          statement,
+          instructions
+        );
+        break;
+
+      case "ReturnStatement":
+        if (statement.value) {
+          this.compileExpression(
+            statement.value,
+            instructions
+          );
+        }
+
+        instructions.push({
+          op: "RETURN",
+        });
+
+        break;
+
+      case "ExpressionStatement":
+        this.compileExpression(
+          statement.expression,
+          instructions
+        );
+
+        instructions.push({
+          op: "POP",
+        });
+
         break;
     }
+  }
+
+  private compileFunction(
+    statement: FunctionStatement,
+    instructions: Instruction[]
+  ): void {
+    instructions.push({
+      op: "FUNCTION_START",
+      name: statement.name,
+    });
+
+    for (const parameter of statement.parameters) {
+      instructions.push({
+        op: "PARAMETER",
+        name: parameter,
+      });
+    }
+
+    for (const child of statement.body) {
+      this.compileStatement(child, instructions);
+    }
+
+    instructions.push({
+      op: "FUNCTION_END",
+      name: statement.name,
+    });
   }
 
   private compileExpression(
@@ -108,7 +178,6 @@ export class Compiler {
         instructions.push({
           op: "CONSTANT",
           value: expression.value,
-          line: expression.line,
         });
         break;
 
@@ -116,7 +185,6 @@ export class Compiler {
         instructions.push({
           op: "LOAD",
           name: expression.name,
-          line: expression.line,
         });
         break;
 
@@ -135,7 +203,22 @@ export class Compiler {
           op: this.binaryOpcode(
             expression.operator
           ),
-          line: expression.line,
+        });
+
+        break;
+
+      case "CallExpression":
+        for (const argument of expression.arguments) {
+          this.compileExpression(
+            argument,
+            instructions
+          );
+        }
+
+        instructions.push({
+          op: "CALL",
+          name: expression.name,
+          value: expression.arguments.length,
         });
 
         break;

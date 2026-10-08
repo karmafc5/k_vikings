@@ -7,36 +7,30 @@ export type Statement =
   | SayStatement
   | AskStatement
   | IfStatement
-  | WhileStatement;
+  | WhileStatement
+  | FunctionStatement
+  | ReturnStatement
+  | ExpressionStatement;
 
 export interface SetStatement {
   type: "SetStatement";
-  kind: "set";
-  line: number;
   name: string;
   value: Expression;
-  expression: Expression;
 }
 
 export interface SayStatement {
   type: "SayStatement";
-  kind: "say";
-  line: number;
   expression: Expression;
 }
 
 export interface AskStatement {
   type: "AskStatement";
-  kind: "ask";
-  line: number;
   name: string;
   prompt?: string;
 }
 
 export interface IfStatement {
   type: "IfStatement";
-  kind: "if";
-  line: number;
   condition: Expression;
   thenBranch: Statement[];
   elseBranch?: Statement[];
@@ -44,36 +38,52 @@ export interface IfStatement {
 
 export interface WhileStatement {
   type: "WhileStatement";
-  kind: "while";
-  line: number;
   condition: Expression;
   body: Statement[];
+}
+
+export interface FunctionStatement {
+  type: "FunctionStatement";
+  name: string;
+  parameters: string[];
+  body: Statement[];
+}
+
+export interface ReturnStatement {
+  type: "ReturnStatement";
+  value?: Expression;
+}
+
+export interface ExpressionStatement {
+  type: "ExpressionStatement";
+  expression: Expression;
 }
 
 export type Expression =
   | LiteralExpression
   | VariableExpression
-  | BinaryExpression;
+  | BinaryExpression
+  | CallExpression;
 
 export interface LiteralExpression {
   type: "LiteralExpression";
-  kind: "literal";
-  line: number;
   value: string | number | boolean;
 }
 
 export interface VariableExpression {
   type: "VariableExpression";
-  kind: "variable";
-  line: number;
   name: string;
 }
 
 export interface BinaryExpression {
   type: "BinaryExpression";
-  kind: "binary";
-  line: number;
   left: Expression;
   operator: string;
   right: Expression;
+}
+
+export interface CallExpression {
+  type: "CallExpression";
+  name: string;
+  arguments: Expression[];
 }

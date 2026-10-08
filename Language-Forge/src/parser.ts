@@ -8,6 +8,9 @@ import {
   AskStatement,
   IfStatement,
   WhileStatement,
+  FunctionStatement,
+  ReturnStatement,
+  ExpressionStatement,
   Expression,
 } from "./ast";
 
@@ -36,36 +39,44 @@ export class Parser {
 
   private statement(): Statement {
     if (this.match(TokenType.SET)) {
-      return this.setStatement(this.previous().line);
+      return this.setStatement();
     }
 
     if (this.match(TokenType.SAY)) {
-      return this.sayStatement(this.previous().line);
+      return this.sayStatement();
     }
 
     if (this.match(TokenType.ASK)) {
-      return this.askStatement(this.previous().line);
+      return this.askStatement();
     }
 
     if (this.match(TokenType.IF)) {
-      return this.ifStatement(this.previous().line);
+      return this.ifStatement();
     }
 
     if (this.match(TokenType.WHILE)) {
-      return this.whileStatement(this.previous().line);
+      return this.whileStatement();
+    }
+
+    if (this.match(TokenType.FUNCTION)) {
+      return this.functionStatement();
+    }
+
+    if (this.match(TokenType.RETURN)) {
+      return this.returnStatement();
+    }
+
+    if (this.check(TokenType.IDENTIFIER)) {
+      return this.expressionStatement();
     }
 
     throw this.error(
       this.peek(),
-      "Expected 'set', 'say', 'ask', 'if', or 'while'."
+      "Expected 'set', 'say', 'ask', 'if', 'while', 'function', or 'return'."
     );
   }
 
-  // --------------------------------------------------
-  // SET
-  // --------------------------------------------------
-
-  private setStatement(line: number): SetStatement {
+  private setStatement(): SetStatement {
     const name = this.consume(
       TokenType.IDENTIFIER,
       "Expected variable name after 'set'."
@@ -82,48 +93,29 @@ export class Parser {
 
     return {
       type: "SetStatement",
-      kind: "set",
-      line,
       name: name.value,
       value,
-      expression: value,
     };
   }
 
-  // --------------------------------------------------
-  // SAY
-  // --------------------------------------------------
-
-  private sayStatement(line: number): SayStatement {
+  private sayStatement(): SayStatement {
     const expression = this.expression();
 
     this.consumeLineEnd();
 
     return {
       type: "SayStatement",
-      kind: "say",
-      line,
       expression,
     };
   }
 
-  // --------------------------------------------------
-  // ASK
-  // --------------------------------------------------
-
-  private askStatement(line: number): AskStatement {
+  private askStatement(): AskStatement {
     const name = this.consume(
       TokenType.IDENTIFIER,
       "Expected variable name after 'ask'."
     );
 
     let prompt: string | undefined;
-
-    /*
-     * Optional custom prompt:
-     *
-     * ask name "What is your name?"
-     */
 
     if (!this.check(TokenType.NEWLINE) && !this.isAtEnd()) {
       const promptToken = this.consume(
@@ -138,25 +130,16 @@ export class Parser {
 
     return {
       type: "AskStatement",
-      kind: "ask",
-      line,
       name: name.value,
       prompt,
     };
   }
 
-  // --------------------------------------------------
-  // IF
-  // --------------------------------------------------
-
-  private ifStatement(line: number): IfStatement {
+  private ifStatement(): IfStatement {
     const condition = this.expression();
 
     this.consumeLineEnd();
 
-    /*
-     * The next token should be INDENT.
-     */
     this.consume(
       TokenType.INDENT,
       "Expected indented block after 'if'."
@@ -181,9 +164,6 @@ export class Parser {
 
     let elseBranch: Statement[] | undefined;
 
-    /*
-     * Check for else.
-     */
     if (this.match(TokenType.ELSE)) {
       this.consumeLineEnd();
 
@@ -212,19 +192,13 @@ export class Parser {
 
     return {
       type: "IfStatement",
-      kind: "if",
-      line,
       condition,
       thenBranch,
       elseBranch,
     };
   }
 
-  // --------------------------------------------------
-  // WHILE
-  // --------------------------------------------------
-
-  private whileStatement(line: number): WhileStatement {
+  private whileStatement(): WhileStatement {
     const condition = this.expression();
 
     this.consumeLineEnd();
@@ -253,22 +227,107 @@ export class Parser {
 
     return {
       type: "WhileStatement",
-      kind: "while",
-      line,
       condition,
       body,
     };
   }
 
-  // --------------------------------------------------
-  // EXPRESSIONS
-  // --------------------------------------------------
+  private functionStatement(): FunctionStatement {
+    const name = this.consume(
+      TokenType.IDENTIFIER,
+      "Expected function name after 'function'."
+    );
+
+    this.consume(
+      TokenType.LEFT_PAREN,
+      "Expected '(' after function name."
+    );
+
+    const parameters: string[] = [];
+
+    if (!this.check(TokenType.RIGHT_PAREN)) {
+      do {
+        const parameter = this.consume(
+          TokenType.IDENTIFIER,
+          "Expected parameter name."
+        );
+
+        parameters.push(parameter.value);
+      } while (
+        this.match(TokenType.COMMA)
+      );
+    }
+
+    this.consume(
+      TokenType.RIGHT_PAREN,
+      "Expected ')' after parameters."
+    );
+
+    this.consumeLineEnd();
+
+    this.consume(
+      TokenType.INDENT,
+      "Expected indented block after function."
+    );
+
+    const body: Statement[] = [];
+
+    this.skipNewlines();
+
+    while (
+      !this.isAtEnd() &&
+      !this.check(TokenType.DEDENT)
+    ) {
+      body.push(this.statement());
+      this.skipNewlines();
+    }
+
+    this.consume(
+      TokenType.DEDENT,
+      "Expected end of function block."
+    );
+
+    return {
+      type: "FunctionStatement",
+      name: name.value,
+      parameters,
+      body,
+    };
+  }
+
+  private returnStatement(): ReturnStatement {
+    let value: Expression | undefined;
+
+    if (
+      !this.check(TokenType.NEWLINE) &&
+      !this.isAtEnd()
+    ) {
+      value = this.expression();
+    }
+
+    this.consumeLineEnd();
+
+    return {
+      type: "ReturnStatement",
+      value,
+    };
+  }
+
+  private expressionStatement(): ExpressionStatement {
+    const expression = this.expression();
+
+    this.consumeLineEnd();
+
+    return {
+      type: "ExpressionStatement",
+      expression,
+    };
+  }
 
   private expression(): Expression {
     return this.or();
   }
 
-  // OR
   private or(): Expression {
     let expression = this.and();
 
@@ -278,8 +337,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -289,7 +346,6 @@ export class Parser {
     return expression;
   }
 
-  // AND
   private and(): Expression {
     let expression = this.equality();
 
@@ -299,8 +355,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -310,7 +364,6 @@ export class Parser {
     return expression;
   }
 
-  // == !=
   private equality(): Expression {
     let expression = this.comparison();
 
@@ -323,8 +376,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -334,7 +385,6 @@ export class Parser {
     return expression;
   }
 
-  // < <= > >=
   private comparison(): Expression {
     let expression = this.term();
 
@@ -349,8 +399,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -360,7 +408,6 @@ export class Parser {
     return expression;
   }
 
-  // + -
   private term(): Expression {
     let expression = this.factor();
 
@@ -373,8 +420,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -384,7 +429,6 @@ export class Parser {
     return expression;
   }
 
-  // * /
   private factor(): Expression {
     let expression = this.unary();
 
@@ -397,8 +441,6 @@ export class Parser {
 
       expression = {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: expression,
         operator,
         right,
@@ -408,27 +450,14 @@ export class Parser {
     return expression;
   }
 
-  // NOT
   private unary(): Expression {
     if (this.match(TokenType.NOT)) {
       const right = this.unary();
 
-      /*
-       * Vico currently represents "not" as
-       * a BinaryExpression.
-       *
-       * We keep this because the interpreter
-       * already supports it.
-       */
-
       return {
         type: "BinaryExpression",
-        kind: "binary",
-        line: this.previous().line,
         left: {
           type: "LiteralExpression",
-          kind: "literal",
-          line: this.previous().line,
           value: true,
         },
         operator: "not",
@@ -439,68 +468,64 @@ export class Parser {
     return this.primary();
   }
 
-  // --------------------------------------------------
-  // PRIMARY
-  // --------------------------------------------------
-
   private primary(): Expression {
     if (this.match(TokenType.NUMBER)) {
-      const token = this.previous();
       return {
         type: "LiteralExpression",
-        kind: "literal",
-        line: token.line,
-        value: Number(token.value),
+        value: Number(this.previous().value),
       };
     }
 
     if (this.match(TokenType.STRING)) {
-      const token = this.previous();
       return {
         type: "LiteralExpression",
-        kind: "literal",
-        line: token.line,
-        value: token.value,
+        value: this.previous().value,
       };
     }
 
     if (this.match(TokenType.TRUE)) {
-      const token = this.previous();
       return {
         type: "LiteralExpression",
-        kind: "literal",
-        line: token.line,
         value: true,
       };
     }
 
     if (this.match(TokenType.FALSE)) {
-      const token = this.previous();
       return {
         type: "LiteralExpression",
-        kind: "literal",
-        line: token.line,
         value: false,
       };
     }
 
     if (this.match(TokenType.IDENTIFIER)) {
-      const token = this.previous();
+      const name = this.previous().value;
+
+      if (this.match(TokenType.LEFT_PAREN)) {
+        const args: Expression[] = [];
+
+        if (!this.check(TokenType.RIGHT_PAREN)) {
+          do {
+            args.push(this.expression());
+          } while (this.match(TokenType.COMMA));
+        }
+
+        this.consume(
+          TokenType.RIGHT_PAREN,
+          "Expected ')' after arguments."
+        );
+
+        return {
+          type: "CallExpression",
+          name,
+          arguments: args,
+        };
+      }
+
       return {
         type: "VariableExpression",
-        kind: "variable",
-        line: token.line,
-        name: token.value,
+        name,
       };
     }
-
-    /*
-     * Parentheses.
-     *
-     * Example:
-     *
-     * (10 + 5) * 2
-     */
 
     if (this.match(TokenType.LEFT_PAREN)) {
       const expression = this.expression();
@@ -518,10 +543,6 @@ export class Parser {
       "Expected expression."
     );
   }
-
-  // --------------------------------------------------
-  // TOKEN HELPERS
-  // --------------------------------------------------
 
   private match(type: TokenType): boolean {
     if (this.check(type)) {

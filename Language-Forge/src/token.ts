@@ -35,6 +35,7 @@ export enum TokenType {
   GREATER_EQUAL = "GREATER_EQUAL",
   LEFT_PAREN = "LEFT_PAREN",
   RIGHT_PAREN = "RIGHT_PAREN",
+  COMMA = "COMMA",
 
   // Other
   NEWLINE = "NEWLINE",

@@ -234,6 +234,10 @@ export class Lexer {
         this.string();
         return;
 
+      case ",":
+  this.addToken(TokenType.COMMA, ",", this.line);
+  return;
+
       default:
         break;
     }

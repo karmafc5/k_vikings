@@ -44,6 +44,20 @@ export class Interpreter {
       case "WhileStatement":
         await this.executeWhile(statement);
         break;
+
+      case "FunctionStatement":
+        throw new Error(
+          `Function '${statement.name}' is not implemented yet.`
+        );
+
+      case "ReturnStatement":
+        throw new Error(
+          "'return' can only be used inside a function."
+        );
+
+      case "ExpressionStatement":
+        this.evaluate(statement.expression);
+        break;
     }
   }
 
@@ -51,13 +65,20 @@ export class Interpreter {
     statement: SetStatement
   ): Promise<void> {
     const value = this.evaluate(statement.value);
-    this.variables.set(statement.name, value);
+
+    this.variables.set(
+      statement.name,
+      value
+    );
   }
 
   private async executeSay(
     statement: SayStatement
   ): Promise<void> {
-    const value = this.evaluate(statement.expression);
+    const value = this.evaluate(
+      statement.expression
+    );
+
     console.log(value);
   }
 
@@ -69,26 +90,37 @@ export class Interpreter {
       `What is ${statement.name}? `;
 
     const answer = await this.getInput(question);
+
     const value = this.convertInput(answer);
 
-    this.variables.set(statement.name, value);
+    this.variables.set(
+      statement.name,
+      value
+    );
   }
 
-  private getInput(question: string): Promise<string> {
+  private getInput(
+    question: string
+  ): Promise<string> {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
     return new Promise((resolve) => {
-      rl.question(question, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
+      rl.question(
+        question,
+        (answer) => {
+          rl.close();
+          resolve(answer);
+        }
+      );
     });
   }
 
-  private convertInput(input: string): Value {
+  private convertInput(
+    input: string
+  ): Value {
     const value = input.trim();
 
     if (value.toLowerCase() === "true") {
@@ -99,7 +131,10 @@ export class Interpreter {
       return false;
     }
 
-    if (value !== "" && !Number.isNaN(Number(value))) {
+    if (
+      value !== "" &&
+      !Number.isNaN(Number(value))
+    ) {
       return Number(value);
     }
 
@@ -109,7 +144,9 @@ export class Interpreter {
   private async executeIf(
     statement: IfStatement
   ): Promise<void> {
-    const condition = this.evaluate(statement.condition);
+    const condition = this.evaluate(
+      statement.condition
+    );
 
     if (this.isTruthy(condition)) {
       for (const childStatement of statement.thenBranch) {
@@ -126,7 +163,9 @@ export class Interpreter {
     statement: WhileStatement
   ): Promise<void> {
     while (
-      this.isTruthy(this.evaluate(statement.condition))
+      this.isTruthy(
+        this.evaluate(statement.condition)
+      )
     ) {
       for (const childStatement of statement.body) {
         await this.execute(childStatement);
@@ -134,20 +173,33 @@ export class Interpreter {
     }
   }
 
-  private evaluate(expression: Expression): Value {
+  private evaluate(
+    expression: Expression
+  ): Value {
     switch (expression.type) {
       case "LiteralExpression":
         return expression.value;
 
       case "VariableExpression":
-        return this.getVariable(expression.name);
+        return this.getVariable(
+          expression.name
+        );
 
       case "BinaryExpression":
-        return this.evaluateBinary(expression);
+        return this.evaluateBinary(
+          expression
+        );
+
+      case "CallExpression":
+        throw new Error(
+          `Function '${expression.name}' is not implemented yet.`
+        );
     }
   }
 
-  private getVariable(name: string): Value {
+  private getVariable(
+    name: string
+  ): Value {
     if (!this.variables.has(name)) {
       throw new Error(
         `Undefined variable '${name}'.`
@@ -157,7 +209,9 @@ export class Interpreter {
     return this.variables.get(name)!;
   }
 
-  private isTruthy(value: Value): boolean {
+  private isTruthy(
+    value: Value
+  ): boolean {
     if (typeof value === "boolean") {
       return value;
     }
@@ -176,8 +230,13 @@ export class Interpreter {
   private evaluateBinary(
     expression: BinaryExpression
   ): Value {
-    const left = this.evaluate(expression.left);
-    const right = this.evaluate(expression.right);
+    const left = this.evaluate(
+      expression.left
+    );
+
+    const right = this.evaluate(
+      expression.right
+    );
 
     switch (expression.operator) {
       case "+":
@@ -185,7 +244,10 @@ export class Interpreter {
           typeof left === "string" ||
           typeof right === "string"
         ) {
-          return String(left) + String(right);
+          return (
+            String(left) +
+            String(right)
+          );
         }
 
         if (
@@ -200,13 +262,22 @@ export class Interpreter {
         );
 
       case "-":
-        return this.toNumber(left) - this.toNumber(right);
+        return (
+          this.toNumber(left) -
+          this.toNumber(right)
+        );
 
       case "*":
-        return this.toNumber(left) * this.toNumber(right);
+        return (
+          this.toNumber(left) *
+          this.toNumber(right)
+        );
 
       case "/":
-        return this.toNumber(left) / this.toNumber(right);
+        return (
+          this.toNumber(left) /
+          this.toNumber(right)
+        );
 
       case "==":
         return left === right;
@@ -215,16 +286,32 @@ export class Interpreter {
         return left !== right;
 
       case "<":
-        return this.compare(left, right, "<");
+        return this.compare(
+          left,
+          right,
+          "<"
+        );
 
       case "<=":
-        return this.compare(left, right, "<=");
+        return this.compare(
+          left,
+          right,
+          "<="
+        );
 
       case ">":
-        return this.compare(left, right, ">");
+        return this.compare(
+          left,
+          right,
+          ">"
+        );
 
       case ">=":
-        return this.compare(left, right, ">=");
+        return this.compare(
+          left,
+          right,
+          ">="
+        );
 
       case "and":
         return (
@@ -248,7 +335,9 @@ export class Interpreter {
     }
   }
 
-  private toNumber(value: Value): number {
+  private toNumber(
+    value: Value
+  ): number {
     if (typeof value === "number") {
       return value;
     }
