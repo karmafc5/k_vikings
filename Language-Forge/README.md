@@ -1,6 +1,6 @@
 # Language Forge
 
-Language Forge contains a self-hosted Vico compiler. Its source is `src/main.v`; `bootstrap/vico.c` provides the initial native compiler used to build it. The self-hosted compiler translates `.vico` programs into C. The `.v` files under `src/` and `bootstrap/` retain the former TypeScript source and are not part of the native compiler build.
+Language Forge contains a self-hosted Vico compiler. Its source is `src/main.v`; `bootstrap/vico.c` provides the initial native compiler used to build it. The self-hosted compiler translates Vico programs into C. The files under `src/` and `bootstrap/` other than `main.v` retain former TypeScript source snapshots; they are not Vico modules and are not part of the native compiler build.
 
 ## Build and run
 
@@ -36,4 +36,4 @@ The compiler supports `say`, `ask`, `set`, `if`/`else`, `while`, functions, retu
 
 ## Development
 
-Run `npm test` for native compiler coverage. `npm run self-host` verifies the compiler fixed point. `npm run compiler -- examples/hello.vico build/hello.c` compiles a program to C.
+Run `npm test` for native compiler coverage, including the Vico regression programs in `tests/`. `npm run self-host` verifies the compiler fixed point. `npm run compiler -- examples/hello.vico build/hello.c` compiles a program to C.
