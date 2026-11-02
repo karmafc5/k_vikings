@@ -1,19 +1,19 @@
 # Language Forge
 
-Language Forge contains a TypeScript interpreter and a self-hosted Vico compiler. The compiler source is `src/main.v`; `bootstrap/vico.c` provides the initial native compiler used to build it. The self-hosted compiler translates `.vico` programs into C.
+Language Forge contains a self-hosted Vico compiler. Its source is `src/main.v`; `bootstrap/vico.c` provides the initial native compiler used to build it. The self-hosted compiler translates `.vico` programs into C. The `.v` files under `src/` and `bootstrap/` retain the former TypeScript source and are not part of the native compiler build.
 
 ## Build and run
 
-Run the TypeScript interpreter:
-
-```sh
-npm start
-```
-
-Build the native compiler and verify that it recompiles its own source to identical output:
+Build the compiler from its C bootstrap and verify that it recompiles itself to identical output:
 
 ```sh
 npm run build
+```
+
+Build and run the hello example:
+
+```sh
+npm start
 ```
 
 Compile a Vico program to C with the native compiler:
@@ -36,4 +36,4 @@ The compiler supports `say`, `ask`, `set`, `if`/`else`, `while`, functions, retu
 
 ## Development
 
-Run `npm test` for TypeScript unit tests or `npm run test-native` for native compiler coverage. `npm run typecheck` checks the TypeScript files. `npm run self-host` verifies the compiler fixed point.
+Run `npm test` for native compiler coverage. `npm run self-host` verifies the compiler fixed point. `npm run compiler -- examples/hello.vico build/hello.c` compiles a program to C.

@@ -4,14 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bootstrap": "tsx bootstrap/compiler.ts",
+    "bootstrap": "make compiler",
     "self-host": "make self-host",
-    "build": "tsc",
-    "start": "tsx src/main.ts",
+    "build": "make self-host",
+    "start": "make run",
     "compiler": "make self-host && build/vico-compiler-selfhost",
-    "test": "vitest run",
-    "test-native": "make test-native",
-    "typecheck": "tsc --noEmit"
+    "test": "make test-native",
+    "test-native": "make test-native"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
