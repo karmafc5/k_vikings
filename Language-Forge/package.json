@@ -4,16 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bootstrap": "make compiler && build/vico-compiler",
-    "build": "make compiler",
+    "bootstrap": "make self-host",
+    "build": "make self-host",
     "start": "make run",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@types/node": "^22.20.5",
-    "tsx": "^4.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^2.0.0"
+    "test": "make test-native"
   }
 }

@@ -1,23 +1,28 @@
 # Language Forge
 
-Language Forge contains a native C compiler for Vico. It translates `.vico` source files into C, then the generated program can be compiled and run with the system C compiler.
+Language Forge has a self-hosted Vico compiler in `vico/compiler.vico` and a small C bootstrap compiler in `bootstrap/vico.c`. The Vico compiler translates `.vico` source files into C.
 
 ## Build and Run
 
-Build the native compiler and run the hello example:
+Build the bootstrap compiler, compile the Vico compiler with it, then compile that output with itself and verify both outputs match:
 
 ```sh
-make compiler
+make self-host
+```
+
+Run the hello example with the self-hosted compiler:
+
+```sh
 make run
 ```
 
 Choose a program with `make run FILE=examples/name.vico` or `make run FILE=examples/calculator.vico`. `ask` reads a line from standard input. To compile a source file to generated C without running it:
 
 ```sh
-build/vico-compiler examples/hello.vico -o build/hello.c
+build/vico-compiler-selfhost examples/hello.vico build/hello.c
 ```
 
-The compiler currently supports `say`, `ask`, and `set` statements, variables, numeric and string literals, arithmetic, and comparisons. The TypeScript interpreter and its broader language tests remain in the repository while native support is expanded.
+The compiler supports `say`, `ask`, `set`, `if`/`else`, `while`, functions, returns, lists, arithmetic, comparisons, and logical operators. Built-ins include `read_file`, `write_file`, `char_at`, `substring`, `len`, `get`, and `append`.
 
 ## Syntax
 
@@ -31,4 +36,4 @@ say greeting
 
 ## Development
 
-Run `npm test` and `npm run typecheck` for the retained TypeScript regression suite. `npm run build` builds the native C compiler.
+Run `make test-native` or `npm test` to check the self-hosted compiler against the examples and language-feature regression. `make self-host` or `npm run build` verifies the fixed point.

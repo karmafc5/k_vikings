@@ -1,0 +1,12 @@
+function factorial(value)
+  if value <= 1
+    return 1
+  else
+    return value * factorial(value - 1)
+
+set values = [1, "two", true]
+if true and not false
+  say "logic"
+say values[0]
+say get(values, 1)
+say factorial(5)
