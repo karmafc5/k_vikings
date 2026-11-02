@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bootstrap": "tsx bootstrap/compiler.ts",
-    "build": "tsc",
-    "start": "tsx src/main.ts",
+    "bootstrap": "make compiler && build/vico-compiler",
+    "build": "make compiler",
+    "start": "make run",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
