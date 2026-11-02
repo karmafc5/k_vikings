@@ -1,3 +1,8 @@
 dist/
 node_modules/
 build/
+*.swp
+/vico-compiler
+/hello
+/hello.c
+/hello.vico

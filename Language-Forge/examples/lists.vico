@@ -1,0 +1,6 @@
+set numbers = [2, 4, 6]
+say "Length: " + len(numbers)
+say "Second: " + numbers[1]
+
+set numbers = append(numbers, 8)
+say "Last: " + get(numbers, 3)

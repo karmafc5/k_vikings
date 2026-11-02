@@ -1,0 +1,8 @@
+function square(value)
+  return value * value
+
+function sum_of_squares(left, right)
+  return square(left) + square(right)
+
+set result = sum_of_squares(3, 4)
+say "Sum of squares: " + result

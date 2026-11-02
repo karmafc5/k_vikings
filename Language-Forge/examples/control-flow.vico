@@ -1,0 +1,15 @@
+set counter = 1
+set total = 0
+
+while counter <= 5
+  if counter == 3
+    set total = total + counter * 2
+  else
+    set total = total + counter
+  set counter = counter + 1
+
+say "Loop total: " + total
+if total == 18
+  say "Condition passed"
+else
+  say "Condition failed"

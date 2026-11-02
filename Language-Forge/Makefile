@@ -16,11 +16,11 @@ $(COMPILER): bootstrap/vico.c
 
 self-host: compiler
 	$(COMPILER) --runtime "$(BUILD_DIR)/vico_runtime.h"
-	$(COMPILER) vico/compiler.vico -o "$(BUILD_DIR)/compiler.bootstrap.c"
+	$(COMPILER) src/main.v -o "$(BUILD_DIR)/compiler.bootstrap.c"
 	$(CC) $(CFLAGS) "$(BUILD_DIR)/compiler.bootstrap.c" -o "$(BUILD_DIR)/vico-compiler-bootstrap"
-	"$(BUILD_DIR)/vico-compiler-bootstrap" vico/compiler.vico "$(BUILD_DIR)/compiler.self.c"
+	"$(BUILD_DIR)/vico-compiler-bootstrap" src/main.v "$(BUILD_DIR)/compiler.self.c"
 	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/compiler.self.c" -o "$(BUILD_DIR)/vico-compiler-selfhost"
-	"$(BUILD_DIR)/vico-compiler-selfhost" vico/compiler.vico "$(BUILD_DIR)/compiler.twice.c"
+	"$(BUILD_DIR)/vico-compiler-selfhost" src/main.v "$(BUILD_DIR)/compiler.twice.c"
 	cmp "$(BUILD_DIR)/compiler.self.c" "$(BUILD_DIR)/compiler.twice.c"
 	@printf 'Vico self-host check passed.\n'
 
@@ -36,6 +36,15 @@ test-native: self-host
 	"$(BUILD_DIR)/vico-compiler-selfhost" examples/calculator.vico "$(BUILD_DIR)/calculator.c"
 	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/calculator.c" -o "$(BUILD_DIR)/calculator"
 	test "$$($(BUILD_DIR)/calculator)" = "Total: 20"
+	"$(BUILD_DIR)/vico-compiler-selfhost" examples/functions.vico "$(BUILD_DIR)/functions.c"
+	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/functions.c" -o "$(BUILD_DIR)/functions"
+	test "$$($(BUILD_DIR)/functions)" = "Sum of squares: 25"
+	"$(BUILD_DIR)/vico-compiler-selfhost" examples/control-flow.vico "$(BUILD_DIR)/control-flow.c"
+	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/control-flow.c" -o "$(BUILD_DIR)/control-flow"
+	test "$$($(BUILD_DIR)/control-flow)" = "$$(printf 'Loop total: 18\nCondition passed')"
+	"$(BUILD_DIR)/vico-compiler-selfhost" examples/lists.vico "$(BUILD_DIR)/lists.c"
+	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/lists.c" -o "$(BUILD_DIR)/lists"
+	test "$$($(BUILD_DIR)/lists)" = "$$(printf 'Length: 3\nSecond: 4\nLast: 8')"
 	"$(BUILD_DIR)/vico-compiler-selfhost" examples/name.vico "$(BUILD_DIR)/name.c"
 	$(CC) $(CFLAGS) -I "$(BUILD_DIR)" "$(BUILD_DIR)/name.c" -o "$(BUILD_DIR)/name"
 	test "$$(printf 'Ada\n' | $(BUILD_DIR)/name)" = "name: My name is Ada"
